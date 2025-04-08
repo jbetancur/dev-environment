@@ -19,4 +19,13 @@ brew install zoxide
 brew install eza
 brew install tmux
 brew install cmatrix
+brew install kind
+brew install kubectl
+brew install kubernetes-cli 
 brew install powerlevel10k
+
+#setup podman
+brew install podman
+brew install podman-desktop
+podman machine init
+podman machine start
