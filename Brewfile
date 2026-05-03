@@ -39,6 +39,7 @@ brew "kind"
 brew "kubectl"
 brew "kubernetes-cli"
 brew "k9s"
+brew "kubectx"
 
 # System utilities
 brew "htop"

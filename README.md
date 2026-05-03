@@ -93,6 +93,7 @@ cd dev-environment
 
 - Docker Desktop
 - `kind`, `kubectl`, `kubernetes-cli`, `k9s`
+- `kubectx` / `kubens` — fast context and namespace switching
 
 ### Apps
 
