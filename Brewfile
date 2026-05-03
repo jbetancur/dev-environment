@@ -52,6 +52,7 @@ cask "visual-studio-code"
 cask "brave-browser"
 cask "bruno"
 cask "slack"
+cask "proton-mail"
 
 # Commented-out / optional
 # cask "discord"

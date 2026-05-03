@@ -113,10 +113,10 @@ alt-6 = 'workspace 6'
 alt-7 = 'workspace 7'
 alt-8 = 'workspace 8'
 alt-9 = 'workspace 9'
-alt-b = 'workspace B'
-alt-c = 'workspace C'
-alt-m = 'workspace M'
-alt-n = 'workspace N'
+alt-b = ['workspace B', 'exec-and-forget open -a "Google Chrome"']
+alt-c = ['workspace C', 'exec-and-forget open -a "Visual Studio Code"']
+alt-m = ['workspace M', 'exec-and-forget open -a "Music"']
+alt-s = ['workspace S', 'exec-and-forget open -a "Proton Mail"', 'exec-and-forget open -a "Slack"']
 alt-t = 'workspace T'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
@@ -127,10 +127,12 @@ alt-shift-4 = 'move-node-to-workspace 4'
 alt-shift-5 = 'move-node-to-workspace 5'
 alt-shift-6 = 'move-node-to-workspace 6'
 alt-shift-7 = 'move-node-to-workspace 7'
+alt-shift-8 = 'move-node-to-workspace 8'
+alt-shift-9 = 'move-node-to-workspace 9'
 alt-shift-b = 'move-node-to-workspace B'
 alt-shift-c = 'move-node-to-workspace C'
 alt-shift-m = 'move-node-to-workspace M'
-alt-shift-n = 'move-node-to-workspace N'
+alt-shift-s = 'move-node-to-workspace S'
 alt-shift-t = 'move-node-to-workspace T'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
@@ -155,10 +157,30 @@ alt-shift-j = ['join-with down', 'mode main']
 alt-shift-k = ['join-with up', 'mode main']
 alt-shift-l = ['join-with right', 'mode main']
 
-# [[on-window-detected]]
-# if.app-id = 'com.github.wez.wezterm'
-# run = 'move-node-to-workspace T'
+[[on-window-detected]]
+if.app-id = 'com.github.wez.wezterm'
+run = 'move-node-to-workspace T'
+
+[[on-window-detected]]
+if.app-id = 'com.google.Chrome'
+run = 'move-node-to-workspace B'
+
+[[on-window-detected]]
+if.app-id = 'com.microsoft.VSCode'
+run = 'move-node-to-workspace C'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Music'
+run = 'move-node-to-workspace M'
+
+[[on-window-detected]]
+if.app-id = 'ch.protonmail.desktop'
+run = 'move-node-to-workspace S'
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace S'
 
 [[on-window-detected]]
 if.app-id = 'com.brave.Browser'
-run = 'move-node-to-workspace B'
+run = 'move-node-to-workspace S'
