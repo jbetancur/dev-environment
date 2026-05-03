@@ -1,5 +1,7 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+
 # Add brew to PATH for current session (works for both Apple Silicon and Intel)
 if [[ -x /opt/homebrew/bin/brew ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -8,8 +10,79 @@ elif [[ -x /usr/local/bin/brew ]]; then
 fi
 echo ""
 echo "==> Installing packages from Brewfile..."
-brew bundle --file="$(dirname "${BASH_SOURCE[0]}")/../Brewfile"
+brew bundle --file="$REPO_ROOT/Brewfile"
 
+# ── User preferences (user.conf) ──────────────────────────────────────────────
+echo ""
+echo "==> Loading user preferences..."
+USER_CONF="$REPO_ROOT/user.conf"
+if [[ ! -f "$USER_CONF" ]]; then
+  cp "$REPO_ROOT/user.conf.example" "$USER_CONF"
+  echo "  Created user.conf — edit it to customise your install, then re-run ./run.sh install"
+  echo ""
+  ${EDITOR:-nano} "$USER_CONF"
+fi
+# shellcheck source=/dev/null
+source "$USER_CONF"
+BROWSER="${BROWSER:-brave}"
+MUSIC="${MUSIC:-apple-music}"
+TERMINAL_APP="${TERMINAL:-wezterm}"
+COMMS="${COMMS:-proton-mail}"
+echo "  browser=$BROWSER  music=$MUSIC  terminal=$TERMINAL_APP  comms=$COMMS"
+
+# Install browser
+echo ""
+echo "==> Installing browser ($BROWSER)..."
+case "$BROWSER" in
+  brave)   brew install --cask brave-browser   && echo "  ✓ Brave Browser" ;;
+  chrome)  brew install --cask google-chrome   && echo "  ✓ Google Chrome" ;;
+  firefox) brew install --cask firefox         && echo "  ✓ Firefox" ;;
+  *)       echo "  ! Unknown BROWSER '$BROWSER' in user.conf — skipping" ;;
+esac
+
+# Install music app
+echo ""
+echo "==> Installing music app ($MUSIC)..."
+case "$MUSIC" in
+  apple-music) echo "  ✓ Apple Music is built-in — nothing to install" ;;
+  spotify)     brew install --cask spotify && echo "  ✓ Spotify" ;;
+  tidal)       brew install --cask tidal   && echo "  ✓ Tidal" ;;
+  none)        echo "  - Skipping music app" ;;
+  *)           echo "  ! Unknown MUSIC '$MUSIC' in user.conf — skipping" ;;
+esac
+
+# Install terminal emulator
+echo ""
+echo "==> Installing terminal ($TERMINAL_APP)..."
+case "$TERMINAL_APP" in
+  wezterm) brew install --cask wezterm && echo "  ✓ WezTerm" ;;
+  iterm2)  brew install --cask iterm2  && echo "  ✓ iTerm2" ;;
+  *)       echo "  ! Unknown TERMINAL '$TERMINAL_APP' in user.conf — skipping" ;;
+esac
+
+# Install comms apps
+echo ""
+echo "==> Installing comms apps ($COMMS)..."
+IFS=',' read -ra COMMS_LIST <<< "$COMMS"
+for _app in "${COMMS_LIST[@]}"; do
+  _app="${_app// /}"
+  case "$_app" in
+    proton-mail) brew install --cask proton-mail && echo "  ✓ Proton Mail" ;;
+    slack)       brew install --cask slack       && echo "  ✓ Slack" ;;
+    discord)     brew install --cask discord     && echo "  ✓ Discord" ;;
+    none)        echo "  - Skipping comms apps" ;;
+    *)           echo "  ! Unknown comms app '$_app' in user.conf — skipping" ;;
+  esac
+done
+# Patch Citrix window pattern into aerospace.toml if set
+CITRIX_PATTERN="${WORK_CITRIX_WINDOW_PATTERN:-}"
+AEROSPACE_TOML="$HOME/.config/aerospace/aerospace.toml"
+if [[ -n "$CITRIX_PATTERN" && -f "$AEROSPACE_TOML" ]]; then
+  echo ""
+  echo "==> Applying Citrix window pattern to aerospace.toml..."
+  sed -i '' "s|# if.window-title-regex-substring = 'YOUR_PATTERN_HERE'|if.window-title-regex-substring = '$CITRIX_PATTERN'|" "$AEROSPACE_TOML"
+  echo "  ✓ Pattern '$CITRIX_PATTERN' applied (local only — not committed)"
+fi
 # nvm (Node Version Manager)
 echo ""
 echo "==> Installing nvm..."
@@ -101,12 +174,11 @@ else
   ssh-keygen -t ed25519 -C "$(git config user.email 2>/dev/null || echo 'github')" -f "$HOME/.ssh/id_ed25519" -N ""
   eval "$(ssh-agent -s)"
   ssh-add --apple-use-keychain "$HOME/.ssh/id_ed25519"
+  pbcopy < "$HOME/.ssh/id_ed25519.pub"
   echo ""
-  echo "==> Your public key (add this to GitHub → Settings → SSH Keys):"
-  echo ""
-  cat "$HOME/.ssh/id_ed25519.pub"
-  echo ""
-  echo "    Visit: https://github.com/settings/ssh/new"
+  echo "  ✓ Public key copied to clipboard"
+  echo "    Opening GitHub SSH key page..."
+  open "https://github.com/settings/ssh/new"
   echo ""
   read -rp "Press ENTER once you have added the key to GitHub to continue..."
 fi

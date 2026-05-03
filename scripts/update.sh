@@ -37,5 +37,42 @@ echo ""
 echo "==> Re-linking dotfiles..."
 bash "$(dirname "${BASH_SOURCE[0]}")/link.sh"
 
+# Re-run user.conf installs in case preferences changed
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+USER_CONF="$REPO_ROOT/user.conf"
+if [[ -f "$USER_CONF" ]]; then
+  echo ""
+  echo "==> Re-installing user.conf apps..."
+  # shellcheck source=/dev/null
+  source "$USER_CONF"
+  BROWSER="${BROWSER:-brave}"
+  MUSIC="${MUSIC:-apple-music}"
+  TERMINAL_APP="${TERMINAL:-wezterm}"
+  COMMS="${COMMS:-proton-mail}"
+  case "$BROWSER" in
+    brave)   brew install --cask brave-browser   2>/dev/null || true ;;
+    chrome)  brew install --cask google-chrome   2>/dev/null || true ;;
+    firefox) brew install --cask firefox         2>/dev/null || true ;;
+  esac
+  case "$MUSIC" in
+    spotify) brew install --cask spotify 2>/dev/null || true ;;
+    tidal)   brew install --cask tidal   2>/dev/null || true ;;
+  esac
+  case "$TERMINAL_APP" in
+    wezterm) brew install --cask wezterm 2>/dev/null || true ;;
+    iterm2)  brew install --cask iterm2  2>/dev/null || true ;;
+  esac
+  IFS=',' read -ra COMMS_LIST <<< "$COMMS"
+  for _app in "${COMMS_LIST[@]}"; do
+    _app="${_app// /}"
+    case "$_app" in
+      proton-mail) brew install --cask proton-mail 2>/dev/null || true ;;
+      slack)       brew install --cask slack       2>/dev/null || true ;;
+      discord)     brew install --cask discord     2>/dev/null || true ;;
+    esac
+  done
+  echo "  ✓ user.conf apps up to date"
+fi
+
 echo ""
 echo "Done."

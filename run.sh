@@ -9,6 +9,7 @@ usage() {
   echo "Commands:"
   echo "  install           Full bootstrap (default)"
   echo "  update            Upgrade packages and re-link dotfiles"
+  echo "  config            Apply user.conf preferences (Citrix pattern, etc.)"
   echo "  link              Re-link dotfiles only"
   echo "  defaults          Apply macOS defaults"
   echo "  check             Verify all tools are installed and working"
@@ -24,6 +25,7 @@ CMD="${1:-install}"
 case "$CMD" in
   install)  bash "$SCRIPTS_DIR/install.sh" ;;
   update)   bash "$SCRIPTS_DIR/update.sh" ;;
+  config)   bash "$SCRIPTS_DIR/config.sh" ;;
   link)     bash "$SCRIPTS_DIR/link.sh" ;;
   defaults) bash "$SCRIPTS_DIR/defaults.sh" ;;
   check)             bash "$SCRIPTS_DIR/check.sh" ;;

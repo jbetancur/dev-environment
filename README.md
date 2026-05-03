@@ -173,14 +173,14 @@ AeroSpace is a tiling window manager that automatically arranges windows without
 
 #### Workspaces
 
-Numbered workspaces `1–9` plus named ones: **B** (browser), **C** (code), **M** (music), **N** (notes), **T** (terminal).
+Numbered workspaces `1–9` plus named ones: **B** (browser), **C** (code), **M** (music), **S** (social/comms), **T** (terminal), **W** (work).
 
 | Keybind | Action |
 | --- | --- |
 | `⌥ + 1–9` | Switch to workspace |
-| `⌥ + B/C/M/N/T` | Switch to named workspace |
-| `⌥ + Shift + 1–7` | Move focused window to workspace |
-| `⌥ + Shift + B/C/M/N/T` | Move focused window to named workspace |
+| `⌥ + B/C/M/S/T/W` | Switch to named workspace |
+| `⌥ + Shift + 1–9` | Move focused window to workspace |
+| `⌥ + Shift + B/C/M/S/T/W` | Move focused window to named workspace |
 | `⌥ + Tab` | Toggle back to previous workspace |
 | `⌥ + Shift + Tab` | Move workspace to next monitor |
 
@@ -192,6 +192,7 @@ Enter service mode for layout maintenance commands:
 | --- | --- |
 | `Esc` | Reload config and exit service mode |
 | `R` | Flatten / reset workspace layout |
+| `B` | Balance / equalize all window sizes |
 | `F` | Toggle window between floating and tiling |
 
 ---

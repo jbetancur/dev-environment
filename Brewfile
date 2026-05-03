@@ -4,6 +4,7 @@ tap "jesseduffield/lazygit"
 
 # Window management
 cask "nikitabobko/tap/aerospace"
+brew "fswatch"
 
 # Fonts
 cask "font-hack-nerd-font"
@@ -19,10 +20,10 @@ brew "zoxide"
 brew "eza"
 brew "fzf"
 brew "tmux"
-cask "wezterm"
-cask "iterm2"
+# Terminal emulator — configured in user.conf (options: wezterm | iterm2)
 
 # Dev tools
+brew "git"
 brew "neovim"
 brew "pyenv"
 brew "gh"
@@ -49,10 +50,11 @@ brew "mas"
 
 # Apps
 cask "visual-studio-code"
-cask "brave-browser"
 cask "bruno"
-cask "slack"
-cask "proton-mail"
+cask "citrix-workspace"
+# Browser — configured in user.conf (options: brave | chrome | firefox)
+# Music   — configured in user.conf (options: apple-music | spotify | tidal)
+# Comms   — configured in user.conf (options: proton-mail | slack | discord)
 
 # Commented-out / optional
 # cask "discord"

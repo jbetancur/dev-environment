@@ -1,0 +1,28 @@
+# ── user.conf ─────────────────────────────────────────────────────────────────
+# Copy this file to user.conf and edit to your preferences.
+# user.conf is gitignored — your choices stay local.
+#
+# After changing, re-run:  ./run.sh install
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Browser — installed and routed to workspace B
+# Options: brave | chrome | firefox
+BROWSER=brave
+
+# Music app — installed and routed to workspace M
+# Options: apple-music | spotify | tidal | none
+MUSIC=apple-music
+
+# Terminal emulator — installed and routed to workspace T
+# Options: wezterm | iterm2
+TERMINAL=wezterm
+
+# Comms apps — installed and routed to workspace S (comma-separated)
+# Options: proton-mail | slack | discord | none
+COMMS=proton-mail
+
+# Citrix session window pattern — used to route spawned sessions to workspace W
+# Run: aerospace list-windows --all | grep -i citrix  to find your pattern
+# Then uncomment if.window-title-regex-substring in aerospace.toml and set it.
+# DO NOT commit this value — it may expose internal app/desktop names.
+# WORK_CITRIX_WINDOW_PATTERN=YOUR_PATTERN_HERE

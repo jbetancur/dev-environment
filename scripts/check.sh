@@ -64,6 +64,7 @@ echo ""
 echo "--- Apps ---"
 check "VS Code (code)"  "command -v code"
 check "WezTerm"         "[[ -d /Applications/WezTerm.app ]]"
+check "iTerm2"          "[[ -d /Applications/iTerm.app ]]"
 check "AeroSpace"       "[[ -d /Applications/AeroSpace.app ]]"
 
 echo ""

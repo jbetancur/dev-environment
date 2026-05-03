@@ -12,7 +12,9 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-after-startup-command = []
+after-startup-command = [
+  'exec-and-forget fswatch -o ~/.config/aerospace/aerospace.toml | xargs -n1 -I{} aerospace reload-config'
+]
 
 # Start AeroSpace at login
 start-at-login = true
@@ -43,6 +45,7 @@ key-mapping.preset = 'qwerty'
 # See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
 # See https://nikitabobko.github.io/AeroSpace/commands#move-mouse
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+on-focused-window-changed  = ['move-mouse window-lazy-center']
 
 # Gaps between windows (inner-*) and between monitor edges (outer-*).
 # Possible values:
@@ -104,6 +107,7 @@ alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
+# Workspace launch bindings — change app names below to match your user.conf
 alt-1 = 'workspace 1'
 alt-2 = 'workspace 2'
 alt-3 = 'workspace 3'
@@ -113,11 +117,17 @@ alt-6 = 'workspace 6'
 alt-7 = 'workspace 7'
 alt-8 = 'workspace 8'
 alt-9 = 'workspace 9'
-alt-b = ['workspace B', 'exec-and-forget open -a "Google Chrome"']
+# Browser: "Brave Browser" | "Google Chrome" | "Firefox"
+alt-b = ['workspace B', 'exec-and-forget open -a "Brave Browser" --args --new-window']
 alt-c = ['workspace C', 'exec-and-forget open -a "Visual Studio Code"']
+# Music: "Music" (Apple) | "Spotify" | "Tidal"
 alt-m = ['workspace M', 'exec-and-forget open -a "Music"']
-alt-s = ['workspace S', 'exec-and-forget open -a "Proton Mail"', 'exec-and-forget open -a "Slack"']
-alt-t = 'workspace T'
+# Comms: "Proton Mail" | "Slack" | "Discord"
+alt-s = ['workspace S', 'exec-and-forget open -a "Proton Mail"']
+# Terminal: "WezTerm" | "iTerm"
+alt-t = ['workspace T', 'exec-and-forget open -a "WezTerm"']
+# Work: just switch to W — sessions are auto-routed by on-window-detected
+alt-w = 'workspace W'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
 alt-shift-1 = 'move-node-to-workspace 1'
@@ -134,6 +144,7 @@ alt-shift-c = 'move-node-to-workspace C'
 alt-shift-m = 'move-node-to-workspace M'
 alt-shift-s = 'move-node-to-workspace S'
 alt-shift-t = 'move-node-to-workspace T'
+alt-shift-w = 'move-node-to-workspace W'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
 alt-tab = 'workspace-back-and-forth'
@@ -148,6 +159,7 @@ alt-shift-semicolon = 'mode service'
 [mode.service.binding]
 esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
+b = ['balance-sizes', 'mode main']          # equalize window sizes
 #s = ['layout sticky tiling', 'mode main'] # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
 f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
 backspace = ['close-all-windows-but-current', 'mode main']
@@ -157,30 +169,105 @@ alt-shift-j = ['join-with down', 'mode main']
 alt-shift-k = ['join-with up', 'mode main']
 alt-shift-l = ['join-with right', 'mode main']
 
+# ── Terminal (workspace T) ───────────────────────────────────────────────────
 [[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'com.github.wez.wezterm'
 run = 'move-node-to-workspace T'
 
 [[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.googlecode.iterm2'
+run = 'move-node-to-workspace T'
+
+# ── Browser (workspace B) ────────────────────────────────────────────────
+[[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.brave.Browser'
+run = 'move-node-to-workspace B'
+
+[[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'com.google.Chrome'
 run = 'move-node-to-workspace B'
 
 [[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'org.mozilla.firefox'
+run = 'move-node-to-workspace B'
+
+# ── Code (workspace C) ─────────────────────────────────────────────────
+[[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'com.microsoft.VSCode'
 run = 'move-node-to-workspace C'
 
+# ── Music (workspace M) ────────────────────────────────────────────────
 [[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'com.apple.Music'
 run = 'move-node-to-workspace M'
 
 [[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.spotify.client'
+run = 'move-node-to-workspace M'
+
+[[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.tidal.desktop'
+run = 'move-node-to-workspace M'
+
+# ── Social / Comms (workspace S) ─────────────────────────────────────────
+[[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'ch.protonmail.desktop'
 run = 'move-node-to-workspace S'
 
 [[on-window-detected]]
+if.during-aerospace-startup = true
 if.app-id = 'com.tinyspeck.slackmacgap'
 run = 'move-node-to-workspace S'
 
 [[on-window-detected]]
-if.app-id = 'com.brave.Browser'
+if.during-aerospace-startup = true
+if.app-id = 'com.hnc.Discord'
 run = 'move-node-to-workspace S'
+
+[[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.apple.MobileSMS'
+run = 'move-node-to-workspace S'
+
+[[on-window-detected]]
+if.during-aerospace-startup = true
+if.app-id = 'com.apple.mail'
+run = 'move-node-to-workspace S'
+
+# ── Work (workspace W) ──────────────────────────────────────────────────────
+# Matches Citrix session windows (spawned remote apps/desktops) but NOT the
+# main Citrix Workspace launcher.
+# Set WORK_CITRIX_WINDOW_PATTERN in user.conf, then uncomment the line below
+# and paste your pattern (run: aerospace list-windows --all | grep -i citrix)
+# DO NOT commit your pattern — it may expose internal app/desktop names.
+[[on-window-detected]]
+if.app-id = 'com.citrix.receiver.icaclient'
+if.window-title-regex-substring = 'ENT_'
+run = 'move-node-to-workspace W'
+
+# ── Float rules for system / utility apps ───────────────────────────────────
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+run = 'layout floating'
