@@ -1,8 +1,6 @@
 if [[ "$TERM_PROGRAM" != "vscode" ]]; then
-  if command -v neofetch &>/dev/null; then
-    neofetch
-  else 
-    brew install neofetch
+  if command -v fastfetch &>/dev/null; then
+    fastfetch
   fi
 fi
 

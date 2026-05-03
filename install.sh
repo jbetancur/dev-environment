@@ -1,3 +1,7 @@
+# Ask for sudo upfront and keep the session alive for the duration of the script
+sudo -v
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Add brew to PATH for current session (works for both Apple Silicon and Intel)
@@ -62,12 +66,39 @@ brew install --cask slack
 echo ""
 echo "==> Installing WireGuard..."
 brew install mas
-if mas account &>/dev/null; then
-  mas install 1451685025 || echo "! WireGuard install failed — install manually from the App Store"
+mas install 1451685025 || echo "! WireGuard install failed — make sure you're signed into the Mac App Store, then run: mas install 1451685025"
+
+
+# Git global config
+echo ""
+echo "==> Configuring git..."
+current_name="$(git config --global user.name 2>/dev/null || true)"
+current_email="$(git config --global user.email 2>/dev/null || true)"
+
+if [[ -n "$current_name" ]]; then
+  echo "  user.name already set to '$current_name' — skipping"
 else
-  echo "! Sign into the Mac App Store first, then run: mas install 1451685025"
+  read -rp "  Enter your git user.name (e.g. John Smith): " git_name
+  git config --global user.name "$git_name"
 fi
 
+if [[ -n "$current_email" ]]; then
+  echo "  user.email already set to '$current_email' — skipping"
+else
+  echo "  Tip: use your GitHub no-reply email to keep it private."
+  echo "       Find it at: https://github.com/settings/emails"
+  echo "       It looks like: 12345678+username@users.noreply.github.com"
+  read -rp "  Enter your git user.email: " git_email
+  git config --global user.email "$git_email"
+fi
+
+# Auto-create remote branch on first push (no more --set-upstream)
+git config --global push.autoSetupRemote true
+# Use main as default branch name
+git config --global init.defaultBranch main
+# Pull with rebase by default
+git config --global pull.rebase true
+echo "  ✓ git configured"
 
 # SSH key for GitHub (Ed25519)
 echo ""
@@ -92,3 +123,9 @@ fi
 ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" \
   && echo "✓ GitHub SSH auth confirmed" \
   || echo "! Could not verify — check your key was saved correctly"
+
+# Dotfiles — symlink repo files into ~/
+bash "$(dirname "${BASH_SOURCE[0]}")/link.sh"
+
+# macOS defaults for developers
+bash "$(dirname "${BASH_SOURCE[0]}")/defaults.sh"
