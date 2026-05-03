@@ -21,7 +21,9 @@ cd dev-environment
 | `./run.sh update` | Upgrade packages + re-link dotfiles |
 | `./run.sh link` | Re-link dotfiles only |
 | `./run.sh defaults` | Apply macOS defaults |
+| `./run.sh check` | Verify all tools are installed and working |
 | `./run.sh restore` | Revert macOS defaults from backup |
+| `./run.sh restore-dotfiles` | Restore dotfiles from a previous backup |
 | `./run.sh uninstall` | Remove all packages, casks, and symlinks (keeps Homebrew) |
 
 > **Note:** Sign into the **Mac App Store** before running — the script uses `mas` to install WireGuard automatically.
@@ -43,7 +45,7 @@ cd dev-environment
 | zoxide | Smarter `cd` |
 | eza | Modern `ls` replacement |
 | fzf | Fuzzy finder |
-| tmux | Terminal multiplexer |
+| tmux + TPM | Terminal multiplexer + plugin manager |
 
 ### Fonts
 
@@ -55,13 +57,33 @@ cd dev-environment
 
 | Tool | Purpose |
 |---|---|
-| Node.js | JavaScript runtime |
+| nvm + Node.js LTS | Node version manager |
+| pyenv + Python 3 | Python version manager |
 | Go | Go toolchain |
 | Neovim | Text editor |
 | Git + GitHub CLI (`gh`) | Version control |
 | lazygit | Terminal Git UI |
 | ripgrep | Fast grep |
 | jq | JSON processor |
+
+### VS Code extensions
+
+| Extension | Purpose |
+|---|---|
+| `golang.go` | Go language support |
+| `vscodevim.vim` | Vim keybindings |
+| `dbaeumer.vscode-eslint` | ESLint |
+| `esbenp.prettier-vscode` | Prettier formatter |
+| `ms-kubernetes-tools.vscode-kubernetes-tools` | Kubernetes |
+| `ms-azuretools.vscode-docker` | Docker |
+| `eamodio.gitlens` | Git blame + history |
+| `mhutchie.git-graph` | Git graph |
+| `catppuccin.catppuccin-vsc` | Theme |
+| `catppuccin.catppuccin-vsc-icons` | File icons |
+| `usernamehw.errorlens` | Inline errors |
+| `ms-vscode-remote.remote-ssh` | Remote SSH |
+| `tamasfe.even-better-toml` | TOML support |
+| `redhat.vscode-yaml` | YAML support |
 
 ### Window management
 

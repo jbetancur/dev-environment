@@ -45,7 +45,7 @@ for cask in \
   visual-studio-code \
   brave-browser \
   bruno \
-  docker \
+  docker-desktop \
   slack; do
   brew uninstall --cask --force "$cask" 2>/dev/null && echo "  removed $cask" || echo "  ! $cask not installed, skipping"
 done

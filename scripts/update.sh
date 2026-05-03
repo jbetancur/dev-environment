@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ask for sudo upfront and keep the session alive
-sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
 echo "==> Updating Homebrew..."
 brew update
 
@@ -19,6 +15,23 @@ brew upgrade --cask --greedy
 echo ""
 echo "==> Cleaning up..."
 brew cleanup
+
+echo ""
+echo "==> Updating Node (nvm)..."
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+nvm install --lts
+nvm use --lts
+
+echo ""
+echo "==> Updating Python (pyenv)..."
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)" 2>/dev/null || true
+LATEST_PY3="$(pyenv install --list | grep -E '^\s+3\.[0-9]+\.[0-9]+$' | tail -1 | tr -d ' ')"
+pyenv install --skip-existing "$LATEST_PY3"
+pyenv global "$LATEST_PY3"
+echo "  ✓ Python $LATEST_PY3 set as global"
 
 echo ""
 echo "==> Re-linking dotfiles..."

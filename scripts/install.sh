@@ -1,7 +1,3 @@
-# Ask for sudo upfront and keep the session alive for the duration of the script
-sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Add brew to PATH for current session (works for both Apple Silicon and Intel)
@@ -10,62 +6,48 @@ if [[ -x /opt/homebrew/bin/brew ]]; then
 elif [[ -x /usr/local/bin/brew ]]; then
   eval "$(/usr/local/bin/brew shellenv)"
 fi
-brew install --cask nikitabobko/tap/aerospace
-brew install node
-brew install neovim
-brew install tree
-brew install jesseduffield/lazygit/lazygit
-# Fonts
-brew install --cask font-hack-nerd-font
-brew install font-meslo-lg-nerd-font
-brew install font-sf-pro
-brew install --cask sf-symbols
-brew install ripgrep
-brew install golang
-brew install gh
-brew install git
-brew install fastfetch
-brew install --cask wezterm
-brew install --cask iterm2
-brew install --cask visual-studio-code
-brew install --cask brave-browser
-brew install zsh-syntax-highlighting
-brew install zsh-autosuggestions
-brew install zoxide
-brew install eza
-brew install tmux
-brew install cmatrix
-brew install htop
-brew install btop
-brew install jq
-brew install fzf
-brew install --cask bruno
-brew install powerlevel10k
-# #Sketchybar
-# brew tap FelixKratz/formulae
-# brew install sketchybar
-# mkdir -p ~/.config/sketchybar/plugins
-# cp $(brew --prefix)/share/sketchybar/examples/sketchybarrc ~/.config/sketchybar/sketchybarrc
-# cp -r $(brew --prefix)/share/sketchybar/examples/plugins/ ~/.config/sketchybar/plugins/
-# sketchybar
-# brew services start sketchybar
-# Docker Desktop
-brew install --cask docker
-#kubernetes
-brew install kind
-brew install kubectl
-brew install kubernetes-cli 
-brew install k9s
-#apps
-#brew install --cask discord
-brew install --cask slack
-#brew install --cask tidal
-#brew install --cask logitech-g-hub
+echo ""
+echo "==> Installing packages from Brewfile..."
+brew bundle --file="$(dirname "${BASH_SOURCE[0]}")/../Brewfile"
+
+# nvm (Node Version Manager)
+echo ""
+echo "==> Installing nvm..."
+if [[ ! -d "$HOME/.nvm" ]]; then
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash
+  echo "  ✓ nvm installed"
+else
+  echo "  ✓ nvm already installed — skipping"
+fi
+# Load nvm for the rest of this script
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+nvm install --lts
+nvm use --lts
+
+# pyenv (Python Version Manager)
+echo ""
+echo "==> Installing pyenv..."
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)" 2>/dev/null || true
+pyenv install --skip-existing 3
+pyenv global "$(pyenv versions --bare | grep "^3" | tail -1)"
+echo "  ✓ Python $(python3 --version 2>&1) set as global"
+
+# TPM (Tmux Plugin Manager)
+echo ""
+echo "==> Installing TPM..."
+if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
+  git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+  echo "  ✓ TPM installed — plugins will load on next tmux session"
+else
+  echo "  ✓ TPM already installed — skipping"
+fi
 
 # WireGuard — official GUI via Mac App Store
 echo ""
 echo "==> Installing WireGuard..."
-brew install mas
 mas install 1451685025 || echo "! WireGuard install failed — make sure you're signed into the Mac App Store, then run: mas install 1451685025"
 
 
@@ -98,6 +80,14 @@ git config --global push.autoSetupRemote true
 git config --global init.defaultBranch main
 # Pull with rebase by default
 git config --global pull.rebase true
+# Use Neovim as default editor
+git config --global core.editor nvim
+# Aliases
+git config --global alias.st "status"
+git config --global alias.co "checkout"
+git config --global alias.br "branch"
+git config --global alias.lg "log --oneline --graph --decorate --all"
+git config --global alias.undo "reset --soft HEAD~1"
 echo "  ✓ git configured"
 
 # SSH key for GitHub (Ed25519)
@@ -124,8 +114,55 @@ ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" \
   && echo "✓ GitHub SSH auth confirmed" \
   || echo "! Could not verify — check your key was saved correctly"
 
+# GitHub CLI auth
+echo ""
+echo "==> Authenticating GitHub CLI..."
+if gh auth status &>/dev/null; then
+  echo "  ✓ gh already authenticated — skipping"
+else
+  gh auth login
+fi
+
 # Dotfiles — symlink repo files into ~/
 bash "$(dirname "${BASH_SOURCE[0]}")/link.sh"
 
+# VS Code extensions
+echo ""
+echo "==> Installing VS Code extensions..."
+if command -v code &>/dev/null; then
+  extensions=(
+    # Go
+    "golang.go"
+    # React / JS / TS
+    "dbaeumer.vscode-eslint"
+    "esbenp.prettier-vscode" 
+    # Kubernetes & Docker
+    "ms-kubernetes-tools.vscode-kubernetes-tools"
+    "ms-azuretools.vscode-docker"
+    # Git
+    "eamodio.gitlens"
+    "mhutchie.git-graph"
+    # Editor
+    "vscodevim.vim"
+    "catppuccin.catppuccin-vsc"
+    "catppuccin.catppuccin-vsc-icons"
+    "christian-kohler.path-intellisense"
+    "usernamehw.errorlens"
+    # Misc
+    "ms-vscode-remote.remote-ssh"
+    "tamasfe.even-better-toml"
+    "redhat.vscode-yaml"
+  )
+  for ext in "${extensions[@]}"; do
+    code --install-extension "$ext" --force 2>/dev/null && echo "  ✓ $ext" || echo "  ! $ext failed"
+  done
+else
+  echo "  ! 'code' not found — open VS Code and run 'Install code command in PATH' from the command palette"
+fi
+
 # macOS defaults for developers
 bash "$(dirname "${BASH_SOURCE[0]}")/defaults.sh"
+
+# Final health check
+echo ""
+bash "$(dirname "${BASH_SOURCE[0]}")/check.sh"

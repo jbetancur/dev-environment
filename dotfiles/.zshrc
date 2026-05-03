@@ -22,7 +22,7 @@ source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
 # history setup
 HISTFILE=$HOME/.zhistory
 SAVEHIST=1000
-HISTSIZE=999
+HISTSIZE=1000
 setopt share_history
 setopt hist_expire_dups_first
 setopt hist_ignore_dups
@@ -41,8 +41,28 @@ source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 alias ls="eza --icons=always"
 
+# ---- Go ----
+export GOPATH="$HOME/go"
+export PATH="$PATH:$GOPATH/bin"
+
 # ---- Zoxide (better cd) ----
 eval "$(zoxide init zsh)"
 
+# ---- nvm (Node Version Manager) ----
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+[[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
+
+# ---- pyenv (Python Version Manager) ----
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d "$PYENV_ROOT/bin" ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+command -v pyenv &>/dev/null && eval "$(pyenv init -)"
+
 alias cd="z"
 alias jb="z ${HOME}/Development/github.com/jbetancur"
+
+# Shell completions
+autoload -Uz compinit && compinit
+command -v kubectl &>/dev/null && source <(kubectl completion zsh)
+command -v gh     &>/dev/null && source <(gh completion -s zsh)
+source <(fzf --zsh)
