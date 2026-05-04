@@ -45,7 +45,6 @@ key-mapping.preset = 'qwerty'
 # See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
 # See https://nikitabobko.github.io/AeroSpace/commands#move-mouse
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focused-window-changed  = ['move-mouse window-lazy-center']
 
 # Gaps between windows (inner-*) and between monitor edges (outer-*).
 # Possible values:
@@ -122,8 +121,10 @@ alt-b = ['workspace B', 'exec-and-forget open -a "Brave Browser" --args --new-wi
 alt-c = ['workspace C', 'exec-and-forget open -a "Visual Studio Code"']
 # Music: "Music" (Apple) | "Spotify" | "Tidal"
 alt-m = ['workspace M', 'exec-and-forget open -a "Music"']
-# Comms: "Proton Mail" | "Slack" | "Discord"
-alt-s = ['workspace S', 'exec-and-forget open -a "Proton Mail"']
+# Mail: ProtonMail + Apple Mail tile together on ⌥+S
+alt-s = ['workspace S', 'exec-and-forget open -a "Proton Mail"', 'exec-and-forget open -a "Mail"']
+# Chat: Messages on its own workspace ⌥+G
+alt-g = ['workspace G', 'exec-and-forget open -a "Messages"']
 # Terminal: "WezTerm" | "iTerm"
 alt-t = ['workspace T', 'exec-and-forget open -a "WezTerm"']
 # Work: just switch to W — sessions are auto-routed by on-window-detected
@@ -141,6 +142,7 @@ alt-shift-8 = 'move-node-to-workspace 8'
 alt-shift-9 = 'move-node-to-workspace 9'
 alt-shift-b = 'move-node-to-workspace B'
 alt-shift-c = 'move-node-to-workspace C'
+alt-shift-g = 'move-node-to-workspace G'
 alt-shift-m = 'move-node-to-workspace M'
 alt-shift-s = 'move-node-to-workspace S'
 alt-shift-t = 'move-node-to-workspace T'
@@ -237,7 +239,7 @@ run = 'move-node-to-workspace S'
 [[on-window-detected]]
 if.during-aerospace-startup = true
 if.app-id = 'com.apple.MobileSMS'
-run = 'move-node-to-workspace S'
+run = 'move-node-to-workspace G'
 
 [[on-window-detected]]
 if.during-aerospace-startup = true

@@ -25,6 +25,8 @@ brew "tmux"
 # Dev tools
 brew "git"
 brew "neovim"
+brew "delta"   # better git diffs
+brew "atuin"   # shell history sync + search
 brew "pyenv"
 brew "gh"
 brew "jesseduffield/lazygit/lazygit"
@@ -41,6 +43,8 @@ brew "kubectl"
 brew "kubernetes-cli"
 brew "k9s"
 brew "kubectx"
+brew "helm"
+brew "cilium-cli"
 
 # System utilities
 brew "htop"

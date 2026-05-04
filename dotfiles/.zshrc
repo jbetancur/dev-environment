@@ -61,6 +61,9 @@ command -v pyenv &>/dev/null && eval "$(pyenv init -)"
 alias cd="z"
 alias jb="z ${HOME}/Development/github.com/jbetancur"
 
+# ---- Atuin (shell history) ----
+command -v atuin &>/dev/null && eval "$(atuin init zsh)"
+
 # Shell completions
 autoload -Uz compinit && compinit
 command -v kubectl &>/dev/null && source <(kubectl completion zsh)

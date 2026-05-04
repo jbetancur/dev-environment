@@ -173,14 +173,14 @@ AeroSpace is a tiling window manager that automatically arranges windows without
 
 #### Workspaces
 
-Numbered workspaces `1–9` plus named ones: **B** (browser), **C** (code), **M** (music), **S** (social/comms), **T** (terminal), **W** (work).
+Numbered workspaces `1–9` plus named ones: **B** (browser), **C** (code), **G** (chat/Messages), **M** (music), **S** (mail), **T** (terminal), **W** (work).
 
 | Keybind | Action |
 | --- | --- |
 | `⌥ + 1–9` | Switch to workspace |
-| `⌥ + B/C/M/S/T/W` | Switch to named workspace |
+| `⌥ + B/C/G/M/S/T/W` | Switch to named workspace |
 | `⌥ + Shift + 1–9` | Move focused window to workspace |
-| `⌥ + Shift + B/C/M/S/T/W` | Move focused window to named workspace |
+| `⌥ + Shift + B/C/G/M/S/T/W` | Move focused window to named workspace |
 | `⌥ + Tab` | Toggle back to previous workspace |
 | `⌥ + Shift + Tab` | Move workspace to next monitor |
 
@@ -285,6 +285,42 @@ Launch with `lazygit` from any Git repo.
 #### k9s — terminal Kubernetes UI
 
 Launch with `k9s`. Navigate with arrow keys; press `?` for a full keybind reference. Type `:pods`, `:deployments`, etc. to jump directly to a resource view.
+
+---
+
+### delta — better git diffs
+
+delta activates automatically — no extra commands. Every `git diff`, `git log`, `git show`, and lazygit diff view gets syntax highlighting and side-by-side mode.
+
+| Command | What you see |
+| --- | --- |
+| `git diff` | Side-by-side syntax-highlighted diff |
+| `git log -p` | Full patch log with highlighting |
+| `git show <sha>` | Highlighted commit diff |
+| `n` / `N` | Jump to next / previous change (navigate mode) |
+
+To toggle side-by-side off temporarily:
+```sh
+git diff --no-pager | delta --side-by-side=false
+```
+
+---
+
+### atuin — shell history
+
+atuin replaces `Ctrl + R` with a full-screen fuzzy history search. History is stored in a local SQLite database and shared across all terminals automatically.
+
+| Keybind / Command | Action |
+| --- | --- |
+| `Ctrl + R` | Open full-screen history search |
+| Type to filter | Fuzzy search across all history |
+| `Enter` | Run selected command |
+| `Tab` | Paste selected command without running |
+| `Ctrl + D` / `Esc` | Close without selecting |
+| `atuin stats` | Show most-used commands |
+| `atuin search <term>` | Search history from the CLI |
+
+> **Note:** In the VS Code integrated terminal `Ctrl + R` may be intercepted by VS Code. Use WezTerm for the full experience — history is shared across all terminals.
 
 ---
 

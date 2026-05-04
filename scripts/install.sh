@@ -161,6 +161,12 @@ git config --global alias.co "checkout"
 git config --global alias.br "branch"
 git config --global alias.lg "log --oneline --graph --decorate --all"
 git config --global alias.undo "reset --soft HEAD~1"
+# delta — syntax-highlighted diffs
+git config --global core.pager delta
+git config --global interactive.diffFilter "delta --color-only"
+git config --global delta.navigate true
+git config --global delta.side-by-side true
+git config --global merge.conflictstyle zdiff3
 echo "  ✓ git configured"
 
 # SSH key for GitHub (Ed25519)
