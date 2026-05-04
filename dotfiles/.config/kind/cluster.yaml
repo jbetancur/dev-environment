@@ -7,7 +7,24 @@ networking:
   disableDefaultCNI: true
   kubeProxyMode: none
 
+# Configure all nodes to pull from the local registry container (kind-registry)
+# which scripts/cluster.sh starts on localhost:5001 before creating the cluster.
+# Uses the containerd v2 hosts.toml format (config_path).
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+
 nodes:
   - role: control-plane
+    # hostPort mappings for Envoy Gateway — proxy pods are scheduled here via
+    # the EnvoyProxy strategic merge patch applied by scripts/cluster.sh.
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
   - role: worker
   - role: worker

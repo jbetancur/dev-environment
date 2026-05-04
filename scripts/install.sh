@@ -230,6 +230,8 @@ if command -v code &>/dev/null; then
     "ms-vscode-remote.remote-ssh"
     "tamasfe.even-better-toml"
     "redhat.vscode-yaml"
+    # AI
+    "anthropic.claude-code"
   )
   for ext in "${extensions[@]}"; do
     code --install-extension "$ext" --force 2>/dev/null && echo "  ✓ $ext" || echo "  ! $ext failed"
