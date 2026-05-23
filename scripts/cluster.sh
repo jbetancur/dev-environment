@@ -10,6 +10,7 @@
 #   ./scripts/cluster.sh <name> --with-gateway            # + Gateway API CRDs + Envoy Gateway
 #   ./scripts/cluster.sh <name> --with-acme               # + cert-manager + Let's Encrypt via Cloudflare DNS-01
 #   ./scripts/cluster.sh <name> --with-monitoring         # + Prometheus + Grafana (kube-prometheus-stack)
+#   ./scripts/cluster.sh <name> --with-argocd             # + ArgoCD (GitOps for k8s/apps/)
 #   ./scripts/cluster.sh <name> --no-test                 # skip Cilium connectivity tests
 #   ./scripts/cluster.sh <name> --delete                  # tear the cluster down
 #
@@ -40,6 +41,9 @@ CERT_MANAGER_VERSION="v1.17.2"
 # https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack
 PROM_STACK_VERSION="70.4.2"
 PROM_NS="monitoring"
+# https://github.com/argoproj/argo-helm/releases?q=argo-cd
+ARGOCD_VERSION="7.8.26"
+ARGOCD_NS="argocd"
 # Local registry — the container name becomes its hostname inside the kind network
 REGISTRY_NAME="kind-registry"
 REGISTRY_PORT="5001"
@@ -55,18 +59,20 @@ shift
 WITH_GATEWAY=false
 WITH_ACME=false
 WITH_MONITORING=false
+WITH_ARGOCD=false
 DELETE=false
 RUN_TESTS=true
 for arg in "$@"; do
   case "$arg" in
-    --full)            WITH_GATEWAY=true; WITH_ACME=true; WITH_MONITORING=true ;;
+    --full)            WITH_GATEWAY=true; WITH_ACME=true; WITH_MONITORING=true; WITH_ARGOCD=true ;;
     --with-gateway)    WITH_GATEWAY=true ;;
     --with-acme)       WITH_ACME=true ;;
     --with-monitoring) WITH_MONITORING=true ;;
+    --with-argocd)     WITH_ARGOCD=true ;;
     --delete)          DELETE=true ;;
     --no-test)         RUN_TESTS=false ;;
     *) echo "Unknown argument: $arg"
-       echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-acme] [--no-test] [--delete]"
+       echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-acme] [--with-monitoring] [--with-argocd] [--no-test] [--delete]"
        exit 1 ;;
   esac
 done
@@ -430,6 +436,66 @@ if [[ "$WITH_MONITORING" == true ]]; then
       < "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml" \
       | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
     echo "  ✓ Grafana: https://grafana.${ACME_SUBDOMAIN}.${ACME_DOMAIN} (admin/admin)"
+  fi
+fi
+
+# -- ArgoCD (optional) -------------------------------------------------------
+if [[ "$WITH_ARGOCD" == true ]]; then
+  # --with-gateway is required for the HTTPRoute
+  if [[ "$WITH_GATEWAY" == false ]]; then
+    echo "  ! --with-argocd requires --with-gateway — skipping ArgoCD install"
+  else
+    echo ""
+    echo "==> Installing ArgoCD ${ARGOCD_VERSION}..."
+    helm repo add argo https://argoproj.github.io/argo-helm --force-update
+    helm upgrade --install argocd argo/argo-cd \
+      --namespace "$ARGOCD_NS" \
+      --kube-context "kind-${CLUSTER_NAME}" \
+      --version "${ARGOCD_VERSION}" \
+      --create-namespace \
+      --set configs.params."server\.insecure"=true \
+      --wait
+    echo "  ✓ ArgoCD installed"
+
+    echo ""
+    echo "==> Applying ArgoCD HTTPRoute..."
+    if [[ "$WITH_ACME" == true ]]; then
+      ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
+        envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
+        < "${MANIFESTS_DIR}/argocd/httproute.yaml" \
+        | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+      echo "  ✓ ArgoCD UI: https://argocd.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+    else
+      kubectl apply --context "kind-${CLUSTER_NAME}" \
+        -f "${MANIFESTS_DIR}/argocd/httproute-local.yaml"
+      echo "  ✓ ArgoCD UI: http://argocd.localhost"
+    fi
+
+    # Wire up the app-of-apps pointing at k8s/apps/ in this repo.
+    # Requires the repo URL — derive it from git if not set in user.conf.
+    ARGOCD_REPO_URL="${ARGOCD_REPO_URL:-$(git -C "${SCRIPT_DIR}" remote get-url origin 2>/dev/null || true)}"
+    if [[ -z "$ARGOCD_REPO_URL" ]]; then
+      echo "  ! ARGOCD_REPO_URL not set and no git remote found — skipping app-of-apps"
+      echo "    Set ARGOCD_REPO_URL in user.conf and re-run:"
+      echo "      kubectl apply -f ${MANIFESTS_DIR}/argocd/app-of-apps.yaml"
+    else
+      echo ""
+      echo "==> Applying app-of-apps (repo: ${ARGOCD_REPO_URL})..."
+      ARGOCD_REPO_URL="$ARGOCD_REPO_URL" \
+        envsubst '${ARGOCD_REPO_URL}' \
+        < "${MANIFESTS_DIR}/argocd/app-of-apps.yaml" \
+        | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+      echo "  ✓ ArgoCD will sync k8s/apps/ from ${ARGOCD_REPO_URL}"
+    fi
+
+    # Print initial admin password
+    echo ""
+    ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret \
+      --namespace "$ARGOCD_NS" \
+      --context "kind-${CLUSTER_NAME}" \
+      -o jsonpath="{.data.password}" | base64 -d)
+    echo "  ArgoCD credentials: admin / ${ARGOCD_PASSWORD}"
+    echo "  (change this after first login)"
   fi
 fi
 

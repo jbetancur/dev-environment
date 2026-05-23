@@ -40,6 +40,7 @@ CLOUDFLARE_TOKEN=your_token   # Zone:DNS:Edit — Cloudflare → My Profile → 
 | `--with-gateway` | Gateway API CRDs, Envoy Gateway, GatewayClass `eg`, Gateway `local`, HTTPS redirect, Hubble HTTPRoute |
 | `--with-acme` | cert-manager, Cloudflare DNS-01 issuer, wildcard cert `*.dev.example.com` |
 | `--with-monitoring` | kube-prometheus-stack (Prometheus + Grafana), ServiceMonitors, dashboards, Grafana HTTPRoute |
+| `--with-argocd` | ArgoCD, HTTPRoute, app-of-apps syncing `k8s/apps/` from git |
 
 Grafana: `https://grafana.dev.example.com` — credentials `admin` / `admin`
 

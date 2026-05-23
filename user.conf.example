@@ -47,3 +47,11 @@ COMMS=proton-mail
 #               When reachable: /etc/hosts entries are removed (local DNS handles it)
 #               When unreachable: /etc/hosts entries are added for offline/away access
 # HOMELAB_DNS=10.0.10.5
+
+# ── ArgoCD ────────────────────────────────────────────────────────────────────
+# Used by: ./scripts/cluster.sh --with-argocd
+#
+# ARGOCD_REPO_URL — git remote URL ArgoCD uses to sync k8s/apps/.
+#                   Auto-detected from `git remote get-url origin` if not set.
+#                   Must be reachable from inside the cluster (SSH or HTTPS).
+# ARGOCD_REPO_URL=https://github.com/you/dev-environment.git
