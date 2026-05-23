@@ -1,7 +1,5 @@
-# ClusterIssuer and Certificate for Let's Encrypt via Cloudflare DNS-01.
-# Placeholder values here are replaced by Kustomize from cluster-values.yaml,
-# which cluster.sh patches with real values before pushing to git.
-# CLOUDFLARE_TOKEN comes from the cloudflare-api-token Secret (created by cluster.sh).
+# Applied by cluster.sh via envsubst after cert-manager CRDs are ready.
+# Variables: ACME_EMAIL, ACME_DOMAIN, ACME_WILDCARD, ACME_BASE
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -10,7 +8,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: you@example.com
+    email: ${ACME_EMAIL}
     privateKeySecretRef:
       name: letsencrypt-cloudflare-key
     solvers:
@@ -21,7 +19,7 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - example.com
+            - ${ACME_DOMAIN}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -30,10 +28,10 @@ metadata:
   namespace: envoy-gateway-system
 spec:
   secretName: dev-tls
-  commonName: "*.dev.example.com"
+  commonName: "${ACME_WILDCARD}"
   dnsNames:
-    - "*.dev.example.com"
-    - "dev.example.com"
+    - "${ACME_WILDCARD}"
+    - "${ACME_BASE}"
   issuerRef:
     name: letsencrypt-cloudflare
     kind: ClusterIssuer

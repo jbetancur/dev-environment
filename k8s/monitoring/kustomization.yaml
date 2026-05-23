@@ -4,4 +4,3 @@ resources:
   - prometheus-rbac.yaml
   - servicemonitors.yaml
   - dashboards.yaml
-  - grafana-httproute.yaml

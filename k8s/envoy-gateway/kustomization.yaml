@@ -3,5 +3,4 @@ kind: Kustomization
 resources:
   - envoy-proxy-kind.yaml
   - gatewayclass.yaml
-  - gateway-https.yaml
   - https-redirect.yaml

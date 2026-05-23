@@ -152,35 +152,6 @@ fi
 ACME_WILDCARD="*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 ACME_BASE="${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 
-# Patch manifests with real domain/email values so ArgoCD deploys correct hostnames.
-# No secrets here — domain/email only.
-echo ""
-echo "==> Patching manifests with your domain..."
-sed -i '' \
-  -e "s|email: you@example\.com|email: ${ACME_EMAIL}|" \
-  -e "s|example\.com|${ACME_DOMAIN}|g" \
-  -e "s|\*\.dev\.${ACME_DOMAIN}|${ACME_WILDCARD}|g" \
-  -e "s|dev\.${ACME_DOMAIN}|${ACME_BASE}|g" \
-  "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml"
-sed -i '' \
-  -e "s|\*\.dev\.example\.com|${ACME_WILDCARD}|g" \
-  -e "s|dev\.example\.com|${ACME_BASE}|g" \
-  "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml"
-sed -i '' \
-  -e "s|hubble\.dev\.example\.com|hubble.${ACME_BASE}|g" \
-  "${MANIFESTS_DIR}/hubble/httproute.yaml"
-sed -i '' \
-  -e "s|grafana\.dev\.example\.com|grafana.${ACME_BASE}|g" \
-  "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml"
-git -C "${SCRIPT_DIR}/.." add \
-  "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml" \
-  "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml" \
-  "${MANIFESTS_DIR}/hubble/httproute.yaml" \
-  "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml"
-git -C "${SCRIPT_DIR}/.." diff --cached --quiet || \
-  git -C "${SCRIPT_DIR}/.." commit -m "bootstrap: set domain values for ${CLUSTER_NAME}"
-git -C "${SCRIPT_DIR}/.." push
-echo "  ✓ Manifests patched and pushed"
 
 # -- local registry ----------------------------------------------------------
 echo ""
@@ -318,9 +289,8 @@ helm upgrade --install argocd argo/argo-cd \
 echo "  ✓ ArgoCD installed"
 
 
-# Apply ArgoCD HTTPRoute — envsubst injects real hostname at bootstrap time
-ACME_BASE="$ACME_BASE" \
-  envsubst '${ACME_BASE}' \
+export ACME_EMAIL ACME_DOMAIN ACME_WILDCARD ACME_BASE ARGOCD_REPO_URL
+envsubst '${ACME_BASE}' \
   < "${MANIFESTS_DIR}/argocd/httproute.yaml" \
   | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
 echo "  ✓ ArgoCD HTTPRoute applied"
@@ -334,15 +304,50 @@ ARGOCD_REPO_URL="$ARGOCD_REPO_URL" \
   | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
 echo "  ✓ ArgoCD will now sync all infra from ${ARGOCD_REPO_URL}"
 
-# Print credentials
+# Wait for Envoy Gateway namespace + CRDs (deployed by ArgoCD) then apply
+# Gateway and HTTPRoutes with real domain values from user.conf.
 echo ""
-ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret \
-  --namespace "$ARGOCD_NS" \
+echo "==> Waiting for Envoy Gateway..."
+until kubectl get deployment envoy-gateway \
+  --namespace envoy-gateway-system \
+  --context "kind-${CLUSTER_NAME}" &>/dev/null; do
+  sleep 5
+done
+kubectl rollout status deployment/envoy-gateway \
+  --namespace envoy-gateway-system \
   --context "kind-${CLUSTER_NAME}" \
-  -o jsonpath="{.data.password}" | base64 -d)
-echo "  ArgoCD: https://argocd.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
-echo "  Credentials: admin / ${ARGOCD_PASSWORD}"
-echo "  (change this after first login)"
+  --timeout=120s
+echo "  ✓ Envoy Gateway ready"
+envsubst '${ACME_WILDCARD}' \
+  < "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+envsubst '${ACME_BASE}' \
+  < "${MANIFESTS_DIR}/hubble/httproute.yaml" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+envsubst '${ACME_BASE}' \
+  < "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ Gateway + HTTPRoutes applied"
+
+# Wait for cert-manager CRDs (deployed by ArgoCD) then apply
+# ClusterIssuer + Certificate with real values from user.conf.
+echo ""
+echo "==> Waiting for cert-manager CRDs..."
+until kubectl get crd clusterissuers.cert-manager.io \
+  --context "kind-${CLUSTER_NAME}" &>/dev/null; do
+  sleep 5
+done
+kubectl rollout status deployment/cert-manager-webhook \
+  --namespace cert-manager \
+  --context "kind-${CLUSTER_NAME}" \
+  --timeout=120s
+echo "  ✓ cert-manager CRDs ready"
+envsubst '${ACME_EMAIL} ${ACME_DOMAIN} ${ACME_WILDCARD} ${ACME_BASE}' \
+  < "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ ClusterIssuer + Certificate applied"
+
+"${SCRIPT_DIR}/argocd-ui.sh" "${CLUSTER_NAME}"
 
 # -- smoke test --------------------------------------------------------------
 if [[ "$RUN_TESTS" == true ]]; then
