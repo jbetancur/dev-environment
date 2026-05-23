@@ -10,9 +10,6 @@ spec:
   parentRefs:
     - name: local
       namespace: envoy-gateway-system
-      sectionName: http
-    - name: local
-      namespace: envoy-gateway-system
       sectionName: https
   hostnames:
     - "hubble.localhost"

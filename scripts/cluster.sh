@@ -357,8 +357,14 @@ if [[ "$WITH_ACME" == true ]]; then
   echo "  ✓ dev-tls ready — https://*.${ACME_SUBDOMAIN}.${ACME_DOMAIN} available"
 fi
 
-# -- Hubble UI HTTPRoute (applied after gateway + cert are ready) ------------
+# -- HTTPS redirect + Hubble UI HTTPRoute (applied after gateway + cert are ready) --
 if [[ "$WITH_GATEWAY" == true ]]; then
+  echo ""
+  echo "==> Applying HTTPS redirect..."
+  kubectl apply --context "kind-${CLUSTER_NAME}" \
+    -f "${MANIFESTS_DIR}/envoy-gateway/https-redirect.yaml"
+  echo "  ✓ HTTP → HTTPS redirect active"
+
   echo ""
   echo "==> Applying Hubble UI HTTPRoute..."
   ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
