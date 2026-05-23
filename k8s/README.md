@@ -112,7 +112,7 @@ TLS is terminated at the Gateway using a Let's Encrypt wildcard cert
 
 ### apps/
 
-Copy `example.yaml` for each new service. Pattern:
+Copy `../example.yaml` for each new service and place it here. Pattern:
 
 - Deployment pulling from `localhost:5001/<image>:latest`
 - Service on port 80
