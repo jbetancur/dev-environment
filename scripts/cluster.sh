@@ -6,8 +6,10 @@
 #
 # Usage:
 #   ./scripts/cluster.sh <name>                           # create cluster
+#   ./scripts/cluster.sh <name> --full                    # everything below in one flag
 #   ./scripts/cluster.sh <name> --with-gateway            # + Gateway API CRDs + Envoy Gateway
 #   ./scripts/cluster.sh <name> --with-acme               # + cert-manager + Let's Encrypt via Cloudflare DNS-01
+#   ./scripts/cluster.sh <name> --with-monitoring         # + Prometheus + Grafana (kube-prometheus-stack)
 #   ./scripts/cluster.sh <name> --no-test                 # skip Cilium connectivity tests
 #   ./scripts/cluster.sh <name> --delete                  # tear the cluster down
 #
@@ -35,6 +37,9 @@ EG_RELEASE="eg"
 EG_NS="envoy-gateway-system"
 # https://github.com/cert-manager/cert-manager/releases
 CERT_MANAGER_VERSION="v1.17.2"
+# https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack
+PROM_STACK_VERSION="70.4.2"
+PROM_NS="monitoring"
 # Local registry — the container name becomes its hostname inside the kind network
 REGISTRY_NAME="kind-registry"
 REGISTRY_PORT="5001"
@@ -49,14 +54,17 @@ shift
 # parse remaining flags
 WITH_GATEWAY=false
 WITH_ACME=false
+WITH_MONITORING=false
 DELETE=false
 RUN_TESTS=true
 for arg in "$@"; do
   case "$arg" in
-    --with-gateway) WITH_GATEWAY=true ;;
-    --with-acme)    WITH_ACME=true ;;
-    --delete)       DELETE=true ;;
-    --no-test)      RUN_TESTS=false ;;
+    --full)            WITH_GATEWAY=true; WITH_ACME=true; WITH_MONITORING=true ;;
+    --with-gateway)    WITH_GATEWAY=true ;;
+    --with-acme)       WITH_ACME=true ;;
+    --with-monitoring) WITH_MONITORING=true ;;
+    --delete)          DELETE=true ;;
+    --no-test)         RUN_TESTS=false ;;
     *) echo "Unknown argument: $arg"
        echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-acme] [--no-test] [--delete]"
        exit 1 ;;
@@ -203,6 +211,11 @@ if [[ "$WITH_GATEWAY" == true ]]; then
   CILIUM_GATEWAY_FLAG="--set gatewayAPI.enabled=true"
 fi
 
+CILIUM_METRICS_FLAG=""
+if [[ "$WITH_MONITORING" == true ]]; then
+  CILIUM_METRICS_FLAG="--set prometheus.enabled=true --set operator.prometheus.enabled=true"
+fi
+
 # shellcheck disable=SC2086
 helm upgrade --install "$CILIUM_RELEASE" cilium/cilium \
   --namespace "$CILIUM_NS" \
@@ -212,7 +225,8 @@ helm upgrade --install "$CILIUM_RELEASE" cilium/cilium \
   --set k8sServicePort="${API_SERVER_PORT}" \
   --set hubble.relay.enabled=true \
   --set hubble.ui.enabled=true \
-  $CILIUM_GATEWAY_FLAG
+  $CILIUM_GATEWAY_FLAG \
+  $CILIUM_METRICS_FLAG
 
 # Wait for Cilium to be fully ready before installing anything else —
 # until Cilium agents are up, worker nodes have node.cilium.io/agent-not-ready:NoSchedule
@@ -367,14 +381,55 @@ if [[ "$WITH_GATEWAY" == true ]]; then
 
   echo ""
   echo "==> Applying Hubble UI HTTPRoute..."
-  ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
-    envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
-    < "${MANIFESTS_DIR}/hubble/httproute.yaml" \
-    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
   if [[ "$WITH_ACME" == true ]]; then
+    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
+      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
+      < "${MANIFESTS_DIR}/hubble/httproute.yaml" \
+      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
     echo "  ✓ Hubble UI: http://hubble.localhost | https://hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
   else
+    kubectl apply --context "kind-${CLUSTER_NAME}" \
+      -f "${MANIFESTS_DIR}/hubble/httproute-local.yaml"
     echo "  ✓ Hubble UI: http://hubble.localhost"
+  fi
+fi
+
+# -- kube-prometheus-stack (optional) ----------------------------------------
+if [[ "$WITH_MONITORING" == true ]]; then
+  echo ""
+  echo "==> Installing kube-prometheus-stack ${PROM_STACK_VERSION}..."
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+  helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    --namespace "$PROM_NS" \
+    --kube-context "kind-${CLUSTER_NAME}" \
+    --version "${PROM_STACK_VERSION}" \
+    --create-namespace \
+    --set grafana.adminPassword=admin \
+    --set grafana.service.type=ClusterIP \
+    --set prometheus.prometheusSpec.retention=24h \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+    --set alertmanager.enabled=false \
+    --wait
+  echo "  ✓ Prometheus + Grafana installed"
+
+  echo ""
+  echo "==> Applying Prometheus RBAC + ServiceMonitors + Grafana dashboards..."
+  kubectl apply --context "kind-${CLUSTER_NAME}" \
+    -f "${MANIFESTS_DIR}/monitoring/prometheus-rbac.yaml"
+  kubectl apply --context "kind-${CLUSTER_NAME}" \
+    -f "${MANIFESTS_DIR}/monitoring/servicemonitors.yaml"
+  kubectl apply --context "kind-${CLUSTER_NAME}" \
+    -f "${MANIFESTS_DIR}/monitoring/dashboards.yaml"
+  echo "  ✓ Cilium, cert-manager, and Envoy Gateway ServiceMonitors + dashboards installed"
+
+  if [[ "$WITH_ACME" == true ]]; then
+    echo ""
+    echo "==> Applying Grafana HTTPRoute..."
+    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
+      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
+      < "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml" \
+      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+    echo "  ✓ Grafana: https://grafana.${ACME_SUBDOMAIN}.${ACME_DOMAIN} (admin/admin)"
   fi
 fi
 

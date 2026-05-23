@@ -1,6 +1,5 @@
-# Templated by scripts/cluster.sh via envsubst — do not apply directly.
-# Variables: ACME_SUBDOMAIN, ACME_DOMAIN
-# Used with --with-acme: registers hubble.localhost + hubble.<subdomain>.<domain> on https.
+# Applied by scripts/cluster.sh when --with-gateway is used without --with-acme.
+# HTTP only, hubble.localhost.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -10,10 +9,9 @@ spec:
   parentRefs:
     - name: local
       namespace: envoy-gateway-system
-      sectionName: https
+      sectionName: http
   hostnames:
     - "hubble.localhost"
-    - "hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
   rules:
     - matches:
         - path:

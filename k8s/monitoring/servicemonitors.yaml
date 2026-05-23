@@ -1,0 +1,89 @@
+# ServiceMonitors + supporting Services for Prometheus scraping.
+---
+# Headless Service to expose Cilium agent metrics (port 9962).
+# Cilium doesn't create this Service itself when prometheus.enabled=true.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-agent-metrics
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cilium-agent
+spec:
+  clusterIP: None
+  selector:
+    k8s-app: cilium
+  ports:
+    - name: metrics
+      port: 9962
+      targetPort: 9962
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-agent
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-agent
+  endpoints:
+    - port: metrics
+      interval: 30s
+      relabelings:
+        - targetLabel: k8s_app
+          replacement: cilium
+---
+# cert-manager exposes metrics on port 9402 (named tcp-prometheus-servicemonitor)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+  endpoints:
+    - port: tcp-prometheus-servicemonitor
+      interval: 30s
+---
+# Envoy Gateway proxy metrics on port 19001.
+# The proxy Service needs a named metrics port — created below.
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-proxy-metrics
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/component: proxy
+spec:
+  selector:
+    app.kubernetes.io/component: proxy
+  ports:
+    - name: metrics
+      port: 19001
+      targetPort: 19001
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-gateway-proxy
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - envoy-gateway-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: proxy
+  endpoints:
+    - port: metrics
+      path: /stats/prometheus
+      interval: 30s
