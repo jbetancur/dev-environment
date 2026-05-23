@@ -26,3 +26,16 @@ COMMS=proton-mail
 # Then uncomment if.window-title-regex-substring in aerospace.toml and set it.
 # DO NOT commit this value — it may expose internal app/desktop names.
 # WORK_CITRIX_WINDOW_PATTERN=YOUR_PATTERN_HERE
+
+# ── Kubernetes / cluster ───────────────────────────────────────────────────────
+# Used by: ./scripts/cluster.sh --with-acme
+#
+# ACME_EMAIL          — Let's Encrypt registration email
+# ACME_DOMAIN         — root domain you own (cert issued for *.<ACME_SUBDOMAIN>.<ACME_DOMAIN>)
+# ACME_SUBDOMAIN      — subdomain prefix for local dev (e.g. "dev" → *.dev.example.com)
+# CLOUDFLARE_TOKEN    — Cloudflare API token with Zone:DNS:Edit for ACME_DOMAIN
+#                       DO NOT commit this value.
+# ACME_EMAIL=you@example.com
+# ACME_DOMAIN=example.com
+# ACME_SUBDOMAIN=dev
+# CLOUDFLARE_TOKEN=YOUR_TOKEN_HERE

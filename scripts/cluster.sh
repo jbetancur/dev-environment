@@ -7,14 +7,22 @@
 # Usage:
 #   ./scripts/cluster.sh <name>                           # create cluster
 #   ./scripts/cluster.sh <name> --with-gateway            # + Gateway API CRDs + Envoy Gateway
-#   ./scripts/cluster.sh <name> --with-certs              # + cert-manager
+#   ./scripts/cluster.sh <name> --with-acme               # + cert-manager + Let's Encrypt via Cloudflare DNS-01
 #   ./scripts/cluster.sh <name> --no-test                 # skip Cilium connectivity tests
 #   ./scripts/cluster.sh <name> --delete                  # tear the cluster down
 #
 set -euo pipefail
 
-CLUSTER_CONFIG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../dotfiles/.config/kind" && pwd)/cluster.yaml"
-MANIFESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../k8s" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLUSTER_CONFIG="${SCRIPT_DIR}/../dotfiles/.config/kind/cluster.yaml"
+MANIFESTS_DIR="${SCRIPT_DIR}/../k8s"
+
+# Source user.conf for ACME_EMAIL, ACME_DOMAIN, ACME_SUBDOMAIN, CLOUDFLARE_TOKEN, etc.
+USER_CONF="${SCRIPT_DIR}/../user.conf"
+if [[ -f "$USER_CONF" ]]; then
+  # shellcheck source=/dev/null
+  source "$USER_CONF"
+fi
 
 # -- versions & release names ------------------------------------------------
 # EG_VERSION pins both the gateway-crds and gateway-helm charts — they ship
@@ -40,17 +48,17 @@ shift
 
 # parse remaining flags
 WITH_GATEWAY=false
-WITH_CERTS=false
+WITH_ACME=false
 DELETE=false
 RUN_TESTS=true
 for arg in "$@"; do
   case "$arg" in
     --with-gateway) WITH_GATEWAY=true ;;
-    --with-certs)   WITH_CERTS=true ;;
+    --with-acme)    WITH_ACME=true ;;
     --delete)       DELETE=true ;;
     --no-test)      RUN_TESTS=false ;;
     *) echo "Unknown argument: $arg"
-       echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-certs] [--no-test] [--delete]"
+       echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-acme] [--no-test] [--delete]"
        exit 1 ;;
   esac
 done
@@ -265,14 +273,15 @@ if [[ "$WITH_GATEWAY" == true ]]; then
     -f "${MANIFESTS_DIR}/envoy-gateway/gatewayclass.yaml"
   echo "  ✓ EnvoyProxy + GatewayClass 'eg' configured"
 
-  # Apply the shared Gateway that handles all inbound traffic on 80 (and 443
-  # when --with-certs provides the TLS secret).  Use the https variant only
-  # when cert-manager will also be installed; fall back to http-only otherwise.
+  # Apply the shared Gateway. Use the HTTPS variant (with ACME wildcard cert) when
+  # --with-acme is set, otherwise plain HTTP only.
   echo ""
   echo "==> Creating shared Gateway 'local'..."
-  if [[ "$WITH_CERTS" == true ]]; then
-    kubectl apply --context "kind-${CLUSTER_NAME}" \
-      -f "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml"
+  if [[ "$WITH_ACME" == true ]]; then
+    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-dev}" ACME_DOMAIN="${ACME_DOMAIN:-localhost}" \
+      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
+      < "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml" \
+      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
   else
     kubectl apply --context "kind-${CLUSTER_NAME}" \
       -f "${MANIFESTS_DIR}/envoy-gateway/gateway.yaml"
@@ -280,8 +289,36 @@ if [[ "$WITH_GATEWAY" == true ]]; then
   echo "  ✓ Gateway 'local' created in ${EG_NS}"
 fi
 
-# -- cert-manager (optional) -------------------------------------------------
-if [[ "$WITH_CERTS" == true ]]; then
+# -- cert-manager + Let's Encrypt via Cloudflare DNS-01 (optional) ----------
+if [[ "$WITH_ACME" == true ]]; then
+  echo ""
+  echo "==> Configuring Let's Encrypt + Cloudflare DNS-01..."
+
+  # Validate required vars from user.conf
+  missing=()
+  for var in ACME_EMAIL ACME_DOMAIN ACME_SUBDOMAIN CLOUDFLARE_TOKEN; do
+    [[ -z "${!var:-}" ]] && missing+=("$var")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo ""
+    echo "  ✗ The following variables must be set in user.conf before using --with-acme:"
+    for var in "${missing[@]}"; do
+      echo "      $var"
+    done
+    echo ""
+    echo "  To get a Cloudflare API token:"
+    echo "    1. Cloudflare dashboard → My Profile → API Tokens → Create Token"
+    echo "    2. Use the 'Edit zone DNS' template"
+    echo "    3. Scope it to Zone: thebetancurs.net (or your ACME_DOMAIN)"
+    echo ""
+    echo "  Then add to user.conf (it is gitignored):"
+    echo "    ACME_EMAIL=you@example.com"
+    echo "    ACME_DOMAIN=example.com"
+    echo "    ACME_SUBDOMAIN=dev"
+    echo "    CLOUDFLARE_TOKEN=your_token_here"
+    exit 1
+  fi
+
   echo ""
   echo "==> Installing cert-manager ${CERT_MANAGER_VERSION}..."
   helm repo add jetstack https://charts.jetstack.io --force-update
@@ -291,21 +328,48 @@ if [[ "$WITH_CERTS" == true ]]; then
     --version "${CERT_MANAGER_VERSION}" \
     --create-namespace \
     --set crds.enabled=true \
+    --set extraArgs="{--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=1.1.1.1:53\,8.8.8.8:53}" \
     --wait
   echo "  ✓ cert-manager installed"
 
-  echo ""
-  echo "==> Applying local CA and localhost TLS certificate..."
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/cert-manager/local-ca.yaml"
-  # Wait for the local-tls secret to be created by cert-manager before continuing
-  echo "  Waiting for 'local-tls' secret in ${EG_NS}..."
-  kubectl wait certificate local-tls \
+  # Load the Cloudflare token into the cluster as a Secret (idempotent via dry-run + apply)
+  kubectl create secret generic cloudflare-api-token \
+    --namespace cert-manager \
+    --context "kind-${CLUSTER_NAME}" \
+    --from-literal=api-token="${CLOUDFLARE_TOKEN}" \
+    --dry-run=client -o yaml \
+    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+
+  # Expand $ACME_EMAIL / $ACME_DOMAIN / $ACME_SUBDOMAIN in the manifest before applying.
+  # Variables are passed inline rather than relying on the environment being sourced,
+  # which can silently produce empty substitutions when run via shell scripts.
+  ACME_EMAIL="$ACME_EMAIL" ACME_DOMAIN="$ACME_DOMAIN" ACME_SUBDOMAIN="$ACME_SUBDOMAIN" \
+    envsubst '${ACME_EMAIL} ${ACME_DOMAIN} ${ACME_SUBDOMAIN}' \
+    < "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml" \
+    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+
+  echo "  Waiting for wildcard cert dev-tls in ${EG_NS} (ACME DNS-01 challenge may take ~60 s)..."
+  kubectl wait certificate dev-tls \
     --namespace "$EG_NS" \
     --context "kind-${CLUSTER_NAME}" \
     --for=condition=Ready \
-    --timeout=120s
-  echo "  ✓ local-tls certificate ready — https://localhost available"
+    --timeout=300s
+  echo "  ✓ dev-tls ready — https://*.${ACME_SUBDOMAIN}.${ACME_DOMAIN} available"
+fi
+
+# -- Hubble UI HTTPRoute (applied after gateway + cert are ready) ------------
+if [[ "$WITH_GATEWAY" == true ]]; then
+  echo ""
+  echo "==> Applying Hubble UI HTTPRoute..."
+  ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
+    envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
+    < "${MANIFESTS_DIR}/hubble/httproute.yaml" \
+    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+  if [[ "$WITH_ACME" == true ]]; then
+    echo "  ✓ Hubble UI: http://hubble.localhost | https://hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+  else
+    echo "  ✓ Hubble UI: http://hubble.localhost"
+  fi
 fi
 
 # -- smoke test (skip with --no-test) ----------------------------------------

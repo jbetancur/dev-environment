@@ -1,6 +1,6 @@
 {
   "workbench.iconTheme": "material-icon-theme",
-  "workbench.colorTheme": "Catppuccin Mocha",
+  "workbench.colorTheme": "Catppuccin Macchiato",
   "gitlens.ai.model": "vscode",
   "gitlens.ai.vscode.model": "copilot:gpt-4.1",
   "containers.containerClient": "com.microsoft.visualstudio.containers.docker",
@@ -22,6 +22,16 @@
     "zsh": {
       "path": "/bin/zsh",
       "args": ["-l"]
+    }
+  },
+  "claudeCode.preferredLocation": "panel",
+  "chat.mcp.gallery.enabled": true,
+  "chat.tools.urls.autoApprove": {
+    "https://code.visualstudio.com": true,
+    "https://github.com/microsoft/vscode/wiki/*": true,
+    "https://github.com": {
+      "approveRequest": false,
+      "approveResponse": true
     }
   }
 }

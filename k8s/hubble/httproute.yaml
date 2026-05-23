@@ -1,0 +1,27 @@
+# Templated by scripts/cluster.sh via envsubst — do not apply directly.
+# Variables (optional): ACME_SUBDOMAIN, ACME_DOMAIN
+# When ACME_SUBDOMAIN/ACME_DOMAIN are empty, only hubble.localhost is registered.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  parentRefs:
+    - name: local
+      namespace: envoy-gateway-system
+      sectionName: http
+    - name: local
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - "hubble.localhost"
+    - "hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: hubble-ui
+          port: 80

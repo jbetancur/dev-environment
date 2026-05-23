@@ -1,3 +1,5 @@
+# Templated by scripts/cluster.sh via envsubst — do not apply directly.
+# Variables: ACME_SUBDOMAIN, ACME_DOMAIN
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -15,11 +17,12 @@ spec:
     - name: https
       protocol: HTTPS
       port: 443
+      hostname: "*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
       allowedRoutes:
         namespaces:
           from: All
       tls:
         mode: Terminate
         certificateRefs:
-          - name: local-tls
+          - name: dev-tls
             namespace: envoy-gateway-system
