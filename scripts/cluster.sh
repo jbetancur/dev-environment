@@ -301,8 +301,10 @@ kubectl create configmap cluster-values \
   | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
 echo "  ✓ cluster-values ConfigMap created in ${ARGOCD_NS}"
 
-# Apply ArgoCD HTTPRoute via Kustomize so the cluster-values replacement runs
-kubectl kustomize "${MANIFESTS_DIR}/argocd" \
+# Apply ArgoCD HTTPRoute — envsubst injects real hostname at bootstrap time
+ACME_BASE="$ACME_BASE" \
+  envsubst '${ACME_BASE}' \
+  < "${MANIFESTS_DIR}/argocd/httproute.yaml" \
   | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
 echo "  ✓ ArgoCD HTTPRoute applied"
 
