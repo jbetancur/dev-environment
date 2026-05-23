@@ -6,6 +6,8 @@ metadata:
   name: cert-manager
   namespace: argocd
   finalizers: []
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
@@ -35,6 +37,8 @@ metadata:
   name: cert-manager-config
   namespace: argocd
   finalizers: []
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:

@@ -6,6 +6,8 @@ metadata:
   name: monitoring
   namespace: argocd
   finalizers: []
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
@@ -41,6 +43,8 @@ metadata:
   name: monitoring-config
   namespace: argocd
   finalizers: []
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:

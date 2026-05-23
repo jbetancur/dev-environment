@@ -152,35 +152,35 @@ fi
 ACME_WILDCARD="*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 ACME_BASE="${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 
-# Patch cluster-values.yaml files with real domain values so ArgoCD Kustomize
-# replacements resolve correctly when it clones the repo.
+# Patch manifests with real domain/email values so ArgoCD deploys correct hostnames.
 # No secrets here — domain/email only.
 echo ""
-echo "==> Patching cluster-values.yaml files with your domain..."
-for cv in \
-  "${MANIFESTS_DIR}/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/cert-manager/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/envoy-gateway/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/hubble/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/monitoring/cluster-values.yaml"; do
-  sed -i '' \
-    -e "s|ACME_DOMAIN:.*|ACME_DOMAIN: ${ACME_DOMAIN}|" \
-    -e "s|ACME_SUBDOMAIN:.*|ACME_SUBDOMAIN: ${ACME_SUBDOMAIN}|" \
-    -e "s|ACME_WILDCARD:.*|ACME_WILDCARD: \"${ACME_WILDCARD}\"|" \
-    -e "s|ACME_BASE:.*|ACME_BASE: ${ACME_BASE}|" \
-    -e "s|ACME_EMAIL:.*|ACME_EMAIL: ${ACME_EMAIL}|" \
-    "$cv"
-done
+echo "==> Patching manifests with your domain..."
+sed -i '' \
+  -e "s|email: you@example\.com|email: ${ACME_EMAIL}|" \
+  -e "s|example\.com|${ACME_DOMAIN}|g" \
+  -e "s|\*\.dev\.${ACME_DOMAIN}|${ACME_WILDCARD}|g" \
+  -e "s|dev\.${ACME_DOMAIN}|${ACME_BASE}|g" \
+  "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml"
+sed -i '' \
+  -e "s|\*\.dev\.example\.com|${ACME_WILDCARD}|g" \
+  -e "s|dev\.example\.com|${ACME_BASE}|g" \
+  "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml"
+sed -i '' \
+  -e "s|hubble\.dev\.example\.com|hubble.${ACME_BASE}|g" \
+  "${MANIFESTS_DIR}/hubble/httproute.yaml"
+sed -i '' \
+  -e "s|grafana\.dev\.example\.com|grafana.${ACME_BASE}|g" \
+  "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml"
 git -C "${SCRIPT_DIR}/.." add \
-  "${MANIFESTS_DIR}/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/cert-manager/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/envoy-gateway/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/hubble/cluster-values.yaml" \
-  "${MANIFESTS_DIR}/monitoring/cluster-values.yaml"
+  "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml" \
+  "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml" \
+  "${MANIFESTS_DIR}/hubble/httproute.yaml" \
+  "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml"
 git -C "${SCRIPT_DIR}/.." diff --cached --quiet || \
-  git -C "${SCRIPT_DIR}/.." commit -m "bootstrap: set cluster-values for ${CLUSTER_NAME}"
+  git -C "${SCRIPT_DIR}/.." commit -m "bootstrap: set domain values for ${CLUSTER_NAME}"
 git -C "${SCRIPT_DIR}/.." push
-echo "  ✓ cluster-values.yaml patched and pushed"
+echo "  ✓ Manifests patched and pushed"
 
 # -- local registry ----------------------------------------------------------
 echo ""
@@ -317,19 +317,6 @@ helm upgrade --install argocd argo/argo-cd \
   --wait
 echo "  ✓ ArgoCD installed"
 
-# cluster-values ConfigMap — Kustomize replacements read from this at sync time.
-# Created imperatively so the repo never needs real domain values committed.
-kubectl create configmap cluster-values \
-  --namespace "$ARGOCD_NS" \
-  --context "kind-${CLUSTER_NAME}" \
-  --from-literal=ACME_DOMAIN="${ACME_DOMAIN}" \
-  --from-literal=ACME_SUBDOMAIN="${ACME_SUBDOMAIN}" \
-  --from-literal=ACME_WILDCARD="${ACME_WILDCARD}" \
-  --from-literal=ACME_BASE="${ACME_BASE}" \
-  --from-literal=ACME_EMAIL="${ACME_EMAIL}" \
-  --dry-run=client -o yaml \
-  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-echo "  ✓ cluster-values ConfigMap created in ${ARGOCD_NS}"
 
 # Apply ArgoCD HTTPRoute — envsubst injects real hostname at bootstrap time
 ACME_BASE="$ACME_BASE" \
