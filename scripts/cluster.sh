@@ -323,7 +323,7 @@ if [[ "$WITH_ACME" == true ]]; then
     echo "  To get a Cloudflare API token:"
     echo "    1. Cloudflare dashboard → My Profile → API Tokens → Create Token"
     echo "    2. Use the 'Edit zone DNS' template"
-    echo "    3. Scope it to Zone: thebetancurs.net (or your ACME_DOMAIN)"
+    echo "    3. Scope it to Zone: your ACME_DOMAIN"
     echo ""
     echo "  Then add to user.conf (it is gitignored):"
     echo "    ACME_EMAIL=you@example.com"

@@ -204,6 +204,22 @@ fi
 # Dotfiles — symlink repo files into ~/
 bash "$(dirname "${BASH_SOURCE[0]}")/link.sh"
 
+# DNS sync launchd daemon — triggers dns-sync.sh on every network change
+echo ""
+echo "==> Installing DNS sync network watcher..."
+PLIST_SRC="${REPO_ROOT}/dotfiles/.config/launchd/dev.cluster.dns-sync.plist"
+PLIST_DST="/Library/LaunchDaemons/dev.cluster.dns-sync.plist"
+SCRIPTS_DIR="${REPO_ROOT}/scripts"
+# Substitute the real scripts path into the plist
+sed "s|SCRIPTS_DIR|${SCRIPTS_DIR}|g" "$PLIST_SRC" | sudo tee "$PLIST_DST" > /dev/null
+sudo chown root:wheel "$PLIST_DST"
+sudo chmod 644 "$PLIST_DST"
+# Unload first in case it's already registered (idempotent)
+sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
+sudo launchctl load "$PLIST_DST"
+echo "  ✓ DNS sync watcher installed — syncing now..."
+sudo "${SCRIPTS_DIR}/dns-sync.sh"
+
 # VS Code extensions
 echo ""
 echo "==> Installing VS Code extensions..."

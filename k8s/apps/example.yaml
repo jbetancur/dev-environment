@@ -53,7 +53,7 @@ spec:
       namespace: envoy-gateway-system
       sectionName: https
   hostnames:
-    - "example.dev.thebetancurs.net"
+    - "example.dev.example.com"
   rules:
     - matches:
         - path:

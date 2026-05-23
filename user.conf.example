@@ -39,3 +39,11 @@ COMMS=proton-mail
 # ACME_DOMAIN=example.com
 # ACME_SUBDOMAIN=dev
 # CLOUDFLARE_TOKEN=YOUR_TOKEN_HERE
+
+# ── DNS sync ───────────────────────────────────────────────────────────────────
+# Used by: ./scripts/dns-sync.sh (auto-triggered on network change via launchd)
+#
+# HOMELAB_DNS — IP of your home DNS server (default: 10.0.10.5)
+#               When reachable: /etc/hosts entries are removed (local DNS handles it)
+#               When unreachable: /etc/hosts entries are added for offline/away access
+# HOMELAB_DNS=10.0.10.5

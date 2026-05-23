@@ -3,7 +3,7 @@
 #
 # Variables (set in user.conf):
 #   ACME_EMAIL       — Let's Encrypt registration email
-#   ACME_DOMAIN      — root domain (e.g. thebetancurs.net)
+#   ACME_DOMAIN      — root domain (e.g. example.com)
 #   ACME_SUBDOMAIN   — dev subdomain prefix (e.g. dev)
 ---
 apiVersion: cert-manager.io/v1
