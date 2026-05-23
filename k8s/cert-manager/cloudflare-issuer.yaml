@@ -1,7 +1,7 @@
 # ClusterIssuer and Certificate for Let's Encrypt via Cloudflare DNS-01.
-# ACME_EMAIL is read from the cluster-values ConfigMap (populated by cluster.sh).
+# Placeholder values here are replaced by Kustomize from cluster-values.yaml,
+# which cluster.sh patches with real values before pushing to git.
 # CLOUDFLARE_TOKEN comes from the cloudflare-api-token Secret (created by cluster.sh).
-# ACME_WILDCARD and ACME_BASE are substituted via Kustomize from cluster.env.
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer

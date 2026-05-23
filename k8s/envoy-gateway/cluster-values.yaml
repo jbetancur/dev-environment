@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-values
+  namespace: argocd
+data:
+  ACME_DOMAIN: example.com
+  ACME_SUBDOMAIN: dev
+  ACME_WILDCARD: "*.dev.example.com"
+  ACME_BASE: dev.example.com
+  ACME_EMAIL: you@example.com

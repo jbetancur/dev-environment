@@ -152,6 +152,36 @@ fi
 ACME_WILDCARD="*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 ACME_BASE="${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 
+# Patch cluster-values.yaml files with real domain values so ArgoCD Kustomize
+# replacements resolve correctly when it clones the repo.
+# No secrets here — domain/email only.
+echo ""
+echo "==> Patching cluster-values.yaml files with your domain..."
+for cv in \
+  "${MANIFESTS_DIR}/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/cert-manager/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/envoy-gateway/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/hubble/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/monitoring/cluster-values.yaml"; do
+  sed -i '' \
+    -e "s|ACME_DOMAIN:.*|ACME_DOMAIN: ${ACME_DOMAIN}|" \
+    -e "s|ACME_SUBDOMAIN:.*|ACME_SUBDOMAIN: ${ACME_SUBDOMAIN}|" \
+    -e "s|ACME_WILDCARD:.*|ACME_WILDCARD: \"${ACME_WILDCARD}\"|" \
+    -e "s|ACME_BASE:.*|ACME_BASE: ${ACME_BASE}|" \
+    -e "s|ACME_EMAIL:.*|ACME_EMAIL: ${ACME_EMAIL}|" \
+    "$cv"
+done
+git -C "${SCRIPT_DIR}/.." add \
+  "${MANIFESTS_DIR}/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/cert-manager/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/envoy-gateway/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/hubble/cluster-values.yaml" \
+  "${MANIFESTS_DIR}/monitoring/cluster-values.yaml"
+git -C "${SCRIPT_DIR}/.." diff --cached --quiet || \
+  git -C "${SCRIPT_DIR}/.." commit -m "bootstrap: set cluster-values for ${CLUSTER_NAME}"
+git -C "${SCRIPT_DIR}/.." push
+echo "  ✓ cluster-values.yaml patched and pushed"
+
 # -- local registry ----------------------------------------------------------
 echo ""
 echo "==> Setting up local registry ($REGISTRY_NAME on localhost:$REGISTRY_PORT)..."

@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../cluster-values.yaml
+  - cluster-values.yaml
   - httproute.yaml
 replacements:
   - source:
