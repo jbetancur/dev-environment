@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # scripts/cluster.sh
 #
-# Stand-alone script — not part of the main bootstrap.
-# Creates a kind cluster with Cilium as the CNI (kube-proxy replaced by eBPF).
+# Bootstraps a local kind cluster with Cilium CNI and ArgoCD.
+# ArgoCD then manages everything else (Envoy Gateway, cert-manager, monitoring)
+# by syncing manifests from this repo.
 #
 # Usage:
-#   ./scripts/cluster.sh <name>                           # create cluster
-#   ./scripts/cluster.sh <name> --full                    # everything below in one flag
-#   ./scripts/cluster.sh <name> --with-gateway            # + Gateway API CRDs + Envoy Gateway
-#   ./scripts/cluster.sh <name> --with-acme               # + cert-manager + Let's Encrypt via Cloudflare DNS-01
-#   ./scripts/cluster.sh <name> --with-monitoring         # + Prometheus + Grafana (kube-prometheus-stack)
-#   ./scripts/cluster.sh <name> --with-argocd             # + ArgoCD (GitOps for k8s/apps/)
-#   ./scripts/cluster.sh <name> --no-test                 # skip Cilium connectivity tests
-#   ./scripts/cluster.sh <name> --delete                  # tear the cluster down
+#   ./scripts/cluster.sh <name>          # create cluster + bootstrap ArgoCD
+#   ./scripts/cluster.sh <name> --test   # also run Cilium connectivity tests
+#   ./scripts/cluster.sh <name> --delete # tear the cluster down
+#
+# Prerequisites:
+#   - user.conf populated (copy from user.conf.example)
+#   - k8s/cluster.env populated with your domain values
+#   - Git remote set (ArgoCD syncs from the remote)
 #
 set -euo pipefail
 
@@ -20,7 +21,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_CONFIG="${SCRIPT_DIR}/../dotfiles/.config/kind/cluster.yaml"
 MANIFESTS_DIR="${SCRIPT_DIR}/../k8s"
 
-# Source user.conf for ACME_EMAIL, ACME_DOMAIN, ACME_SUBDOMAIN, CLOUDFLARE_TOKEN, etc.
+# Source cluster.env defaults (placeholder values committed to the repo),
+# then overlay with user.conf so your real values take precedence.
+CLUSTER_ENV="${MANIFESTS_DIR}/cluster.env"
+if [[ -f "$CLUSTER_ENV" ]]; then
+  # shellcheck source=/dev/null
+  source "$CLUSTER_ENV"
+fi
+
 USER_CONF="${SCRIPT_DIR}/../user.conf"
 if [[ -f "$USER_CONF" ]]; then
   # shellcheck source=/dev/null
@@ -28,57 +36,36 @@ if [[ -f "$USER_CONF" ]]; then
 fi
 
 # -- versions & release names ------------------------------------------------
-# EG_VERSION pins both the gateway-crds and gateway-helm charts — they ship
-# together so the CRDs are always compatible with the controller.
-# https://github.com/envoyproxy/gateway/releases
-EG_VERSION="v1.7.2"
+# https://github.com/cilium/cilium/releases
 CILIUM_RELEASE="cilium"
 CILIUM_NS="kube-system"
-EG_RELEASE="eg"
-EG_NS="envoy-gateway-system"
-# https://github.com/cert-manager/cert-manager/releases
-CERT_MANAGER_VERSION="v1.17.2"
-# https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack
-PROM_STACK_VERSION="70.4.2"
-PROM_NS="monitoring"
 # https://github.com/argoproj/argo-helm/releases?q=argo-cd
 ARGOCD_VERSION="7.8.26"
 ARGOCD_NS="argocd"
-# Local registry — the container name becomes its hostname inside the kind network
+# Local registry
 REGISTRY_NAME="kind-registry"
 REGISTRY_PORT="5001"
 
 if [[ $# -lt 1 || "${1:-}" == --* ]]; then
-  echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--delete]"
+  echo "Usage: ./scripts/cluster.sh <cluster-name> [--no-test] [--delete]"
   exit 1
 fi
 CLUSTER_NAME="$1"
 shift
 
-# parse remaining flags
-WITH_GATEWAY=false
-WITH_ACME=false
-WITH_MONITORING=false
-WITH_ARGOCD=false
 DELETE=false
-RUN_TESTS=true
+RUN_TESTS=false
 for arg in "$@"; do
   case "$arg" in
-    --full)            WITH_GATEWAY=true; WITH_ACME=true; WITH_MONITORING=true; WITH_ARGOCD=true ;;
-    --with-gateway)    WITH_GATEWAY=true ;;
-    --with-acme)       WITH_ACME=true ;;
-    --with-monitoring) WITH_MONITORING=true ;;
-    --with-argocd)     WITH_ARGOCD=true ;;
-    --delete)          DELETE=true ;;
-    --no-test)         RUN_TESTS=false ;;
+    --delete) DELETE=true ;;
+    --test)   RUN_TESTS=true ;;
     *) echo "Unknown argument: $arg"
-       echo "Usage: ./scripts/cluster.sh <cluster-name> [--with-gateway] [--with-acme] [--with-monitoring] [--with-argocd] [--no-test] [--delete]"
+       echo "Usage: ./scripts/cluster.sh <cluster-name> [--test] [--delete]"
        exit 1 ;;
   esac
 done
 
 # -- helpers -----------------------------------------------------------------
-# Maps binary name -> brew formula (they differ for cilium-cli)
 brew_formula() {
   case "$1" in
     cilium) echo "cilium-cli" ;;
@@ -107,7 +94,6 @@ require() {
 delete_cluster() {
   echo "==> Deleting kind cluster '$CLUSTER_NAME'..."
   kind delete cluster --name "$CLUSTER_NAME"
-  # Remove the local registry only if no other kind clusters are using it
   if [[ -n "$(kind get clusters 2>/dev/null)" ]]; then
     echo "  Other kind clusters still running — keeping registry '$REGISTRY_NAME'"
   else
@@ -119,7 +105,6 @@ delete_cluster() {
   echo "Done."
 }
 
-# -- flags -------------------------------------------------------------------
 if [[ "$DELETE" == true ]]; then
   delete_cluster
   exit 0
@@ -136,15 +121,36 @@ if ! docker info &>/dev/null; then
   echo "  ✗ Docker is not running — start Docker Desktop first"
   exit 1
 fi
+
+# Validate required vars
+missing=()
+for var in ACME_EMAIL ACME_DOMAIN ACME_SUBDOMAIN CLOUDFLARE_TOKEN ARGOCD_REPO_URL; do
+  [[ -z "${!var:-}" ]] && missing+=("$var")
+done
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo ""
+  echo "  ✗ Missing required variables:"
+  for var in "${missing[@]}"; do
+    echo "      $var"
+  done
+  echo ""
+  echo "  Set ACME_EMAIL, CLOUDFLARE_TOKEN in user.conf"
+  echo "  Set ACME_DOMAIN, ACME_SUBDOMAIN, ARGOCD_REPO_URL in k8s/cluster.env"
+  exit 1
+fi
 echo "  ✓ All prerequisites met"
 
 # Bail out cleanly if the cluster already exists
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
   echo ""
   echo "  Cluster '$CLUSTER_NAME' already exists."
-  echo "  To rebuild it, run:  ./scripts/cluster.sh $CLUSTER_NAME --delete && ./scripts/cluster.sh $CLUSTER_NAME [--with-gateway]"
+  echo "  To rebuild: ./scripts/cluster.sh $CLUSTER_NAME --delete && ./scripts/cluster.sh $CLUSTER_NAME"
   exit 0
 fi
+
+# Derive computed values from what was sourced
+ACME_WILDCARD="*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+ACME_BASE="${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
 
 # -- local registry ----------------------------------------------------------
 echo ""
@@ -166,11 +172,8 @@ echo ""
 echo "==> Creating kind cluster '$CLUSTER_NAME' (no CNI, no kube-proxy)..."
 kind create cluster --name "$CLUSTER_NAME" --config "$CLUSTER_CONFIG"
 
-# Connect the registry container into the kind network so nodes can reach it
-# by the hostname "kind-registry" (as configured in containerdConfigPatches).
 docker network connect "kind" "$REGISTRY_NAME" 2>/dev/null || true
 
-# Write hosts.toml into every node so containerd resolves localhost:5001 -> kind-registry:5000
 for node in $(kind get nodes --name "$CLUSTER_NAME"); do
   docker exec "$node" mkdir -p "/etc/containerd/certs.d/localhost:${REGISTRY_PORT}"
   cat <<EOF | docker exec -i "$node" tee "/etc/containerd/certs.d/localhost:${REGISTRY_PORT}/hosts.toml" > /dev/null
@@ -178,26 +181,25 @@ for node in $(kind get nodes --name "$CLUSTER_NAME"); do
 EOF
 done
 
-# Publish registry info for tools like Tilt/Skaffold
 kubectl apply --context "kind-${CLUSTER_NAME}" \
   -f "${MANIFESTS_DIR}/registry/local-registry-hosting.yaml"
-echo "  ✓ Registry wired — push to localhost:${REGISTRY_PORT}/myimage, pull as localhost:${REGISTRY_PORT}/myimage"
+echo "  ✓ Registry wired — push to localhost:${REGISTRY_PORT}/myimage"
 
-# -- Gateway API CRDs (installed before Cilium so the operator finds them on startup)
-if [[ "$WITH_GATEWAY" == true ]]; then
-  echo ""
-  echo "==> Installing Gateway API + Envoy Gateway CRDs (${EG_VERSION})..."
-  helm template gateway-crds oci://docker.io/envoyproxy/gateway-crds-helm \
-    --kube-context "kind-${CLUSTER_NAME}" \
-    --version "${EG_VERSION}" \
-    --set crds.gatewayAPI.enabled=true \
-    --set crds.gatewayAPI.channel=experimental \
-    --set crds.envoyGateway.enabled=true \
-    | kubectl apply --server-side -f - --context "kind-${CLUSTER_NAME}"
-  echo "  ✓ Gateway API CRDs installed"
-fi
+# -- Gateway API CRDs --------------------------------------------------------
+# Must be installed before Cilium so the operator finds them on startup.
+# Pinned to the same version as the Envoy Gateway ArgoCD Application.
+echo ""
+echo "==> Installing Gateway API + Envoy Gateway CRDs..."
+helm template gateway-crds oci://docker.io/envoyproxy/gateway-crds-helm \
+  --kube-context "kind-${CLUSTER_NAME}" \
+  --version "v1.7.2" \
+  --set crds.gatewayAPI.enabled=true \
+  --set crds.gatewayAPI.channel=experimental \
+  --set crds.envoyGateway.enabled=true \
+  | kubectl apply --server-side -f - --context "kind-${CLUSTER_NAME}"
+echo "  ✓ Gateway API CRDs installed"
 
-# -- install Cilium via Helm -------------------------------------------------
+# -- Cilium ------------------------------------------------------------------
 echo ""
 echo "==> Adding Cilium Helm repo..."
 helm repo add cilium https://helm.cilium.io/ --force-update
@@ -205,24 +207,11 @@ helm repo update cilium
 
 echo ""
 echo "==> Installing Cilium..."
-# Cilium pods run inside the cluster and need the internal Docker network IP of
-# the control-plane container — NOT the localhost port-forward in the kubeconfig.
 CONTROL_PLANE_NODE="$(kind get nodes --name "$CLUSTER_NAME" | grep control-plane)"
 API_SERVER_IP="$(docker inspect "$CONTROL_PLANE_NODE" \
   --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
 API_SERVER_PORT=6443
 
-CILIUM_GATEWAY_FLAG=""
-if [[ "$WITH_GATEWAY" == true ]]; then
-  CILIUM_GATEWAY_FLAG="--set gatewayAPI.enabled=true"
-fi
-
-CILIUM_METRICS_FLAG=""
-if [[ "$WITH_MONITORING" == true ]]; then
-  CILIUM_METRICS_FLAG="--set prometheus.enabled=true --set operator.prometheus.enabled=true"
-fi
-
-# shellcheck disable=SC2086
 helm upgrade --install "$CILIUM_RELEASE" cilium/cilium \
   --namespace "$CILIUM_NS" \
   --kube-context "kind-${CLUSTER_NAME}" \
@@ -231,12 +220,10 @@ helm upgrade --install "$CILIUM_RELEASE" cilium/cilium \
   --set k8sServicePort="${API_SERVER_PORT}" \
   --set hubble.relay.enabled=true \
   --set hubble.ui.enabled=true \
-  $CILIUM_GATEWAY_FLAG \
-  $CILIUM_METRICS_FLAG
+  --set gatewayAPI.enabled=true \
+  --set prometheus.enabled=true \
+  --set operator.prometheus.enabled=true
 
-# Wait for Cilium to be fully ready before installing anything else —
-# until Cilium agents are up, worker nodes have node.cilium.io/agent-not-ready:NoSchedule
-# which prevents any other pods (including EG certgen) from scheduling.
 echo ""
 echo "==> Waiting for Cilium to be ready (this can take ~90 s)..."
 kubectl rollout status daemonset/cilium \
@@ -262,7 +249,6 @@ kubectl rollout status deployment/hubble-ui \
 cilium status --context "kind-${CLUSTER_NAME}"
 
 # -- metrics-server ----------------------------------------------------------
-# kind does not ship metrics-server; without it kubectl top and HPA don't work.
 echo ""
 echo "==> Installing metrics-server..."
 helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ --force-update
@@ -272,234 +258,74 @@ helm upgrade --install metrics-server metrics-server/metrics-server \
   --set args={--kubelet-insecure-tls}
 echo "  ✓ metrics-server installed"
 
-# -- Envoy Gateway controller (optional) ------------------------------------
-if [[ "$WITH_GATEWAY" == true ]]; then
-  echo ""
-  echo "==> Installing Envoy Gateway ${EG_VERSION}..."
-  helm upgrade --install "$EG_RELEASE" oci://docker.io/envoyproxy/gateway-helm \
-    --namespace "$EG_NS" \
-    --kube-context "kind-${CLUSTER_NAME}" \
-    --version "${EG_VERSION}" \
-    --create-namespace \
-    --skip-crds \
-    --wait
-  echo "  ✓ Envoy Gateway installed"
+# -- Secrets (created before ArgoCD so apps can reference them immediately) --
+echo ""
+echo "==> Creating cluster secrets..."
 
-  echo ""
-  echo "==> Configuring Envoy proxy + GatewayClass for kind..."
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/envoy-gateway/envoy-proxy-kind.yaml"
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/envoy-gateway/gatewayclass.yaml"
-  echo "  ✓ EnvoyProxy + GatewayClass 'eg' configured"
+# Cloudflare API token for cert-manager DNS-01
+kubectl create namespace cert-manager \
+  --context "kind-${CLUSTER_NAME}" \
+  --dry-run=client -o yaml | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+kubectl create secret generic cloudflare-api-token \
+  --namespace cert-manager \
+  --context "kind-${CLUSTER_NAME}" \
+  --from-literal=api-token="${CLOUDFLARE_TOKEN}" \
+  --dry-run=client -o yaml \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ cloudflare-api-token secret created in cert-manager"
 
-  # Apply the shared Gateway. Use the HTTPS variant (with ACME wildcard cert) when
-  # --with-acme is set, otherwise plain HTTP only.
-  echo ""
-  echo "==> Creating shared Gateway 'local'..."
-  if [[ "$WITH_ACME" == true ]]; then
-    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-dev}" ACME_DOMAIN="${ACME_DOMAIN:-localhost}" \
-      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
-      < "${MANIFESTS_DIR}/envoy-gateway/gateway-https.yaml" \
-      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-  else
-    kubectl apply --context "kind-${CLUSTER_NAME}" \
-      -f "${MANIFESTS_DIR}/envoy-gateway/gateway.yaml"
-  fi
-  echo "  ✓ Gateway 'local' created in ${EG_NS}"
-fi
+# -- ArgoCD ------------------------------------------------------------------
+echo ""
+echo "==> Installing ArgoCD ${ARGOCD_VERSION}..."
+helm repo add argo https://argoproj.github.io/argo-helm --force-update
+helm upgrade --install argocd argo/argo-cd \
+  --namespace "$ARGOCD_NS" \
+  --kube-context "kind-${CLUSTER_NAME}" \
+  --version "${ARGOCD_VERSION}" \
+  --create-namespace \
+  --set configs.params."server\.insecure"=true \
+  --wait
+echo "  ✓ ArgoCD installed"
 
-# -- cert-manager + Let's Encrypt via Cloudflare DNS-01 (optional) ----------
-if [[ "$WITH_ACME" == true ]]; then
-  echo ""
-  echo "==> Configuring Let's Encrypt + Cloudflare DNS-01..."
+# cluster-values ConfigMap — Kustomize replacements read from this at sync time.
+# Created imperatively so the repo never needs real domain values committed.
+kubectl create configmap cluster-values \
+  --namespace "$ARGOCD_NS" \
+  --context "kind-${CLUSTER_NAME}" \
+  --from-literal=ACME_DOMAIN="${ACME_DOMAIN}" \
+  --from-literal=ACME_SUBDOMAIN="${ACME_SUBDOMAIN}" \
+  --from-literal=ACME_WILDCARD="${ACME_WILDCARD}" \
+  --from-literal=ACME_BASE="${ACME_BASE}" \
+  --from-literal=ACME_EMAIL="${ACME_EMAIL}" \
+  --dry-run=client -o yaml \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ cluster-values ConfigMap created in ${ARGOCD_NS}"
 
-  # Validate required vars from user.conf
-  missing=()
-  for var in ACME_EMAIL ACME_DOMAIN ACME_SUBDOMAIN CLOUDFLARE_TOKEN; do
-    [[ -z "${!var:-}" ]] && missing+=("$var")
-  done
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo ""
-    echo "  ✗ The following variables must be set in user.conf before using --with-acme:"
-    for var in "${missing[@]}"; do
-      echo "      $var"
-    done
-    echo ""
-    echo "  To get a Cloudflare API token:"
-    echo "    1. Cloudflare dashboard → My Profile → API Tokens → Create Token"
-    echo "    2. Use the 'Edit zone DNS' template"
-    echo "    3. Scope it to Zone: your ACME_DOMAIN"
-    echo ""
-    echo "  Then add to user.conf (it is gitignored):"
-    echo "    ACME_EMAIL=you@example.com"
-    echo "    ACME_DOMAIN=example.com"
-    echo "    ACME_SUBDOMAIN=dev"
-    echo "    CLOUDFLARE_TOKEN=your_token_here"
-    exit 1
-  fi
+# Apply ArgoCD HTTPRoute via Kustomize so the cluster-values replacement runs
+kubectl kustomize "${MANIFESTS_DIR}/argocd" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ ArgoCD HTTPRoute applied"
 
-  echo ""
-  echo "==> Installing cert-manager ${CERT_MANAGER_VERSION}..."
-  helm repo add jetstack https://charts.jetstack.io --force-update
-  helm upgrade --install cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
-    --kube-context "kind-${CLUSTER_NAME}" \
-    --version "${CERT_MANAGER_VERSION}" \
-    --create-namespace \
-    --set crds.enabled=true \
-    --set extraArgs="{--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=1.1.1.1:53\,8.8.8.8:53}" \
-    --wait
-  echo "  ✓ cert-manager installed"
+# Apply the root app-of-apps — ArgoCD takes over from here
+echo ""
+echo "==> Applying root app-of-apps..."
+ARGOCD_REPO_URL="$ARGOCD_REPO_URL" \
+  envsubst '${ARGOCD_REPO_URL}' \
+  < "${MANIFESTS_DIR}/argocd/root.yaml" \
+  | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+echo "  ✓ ArgoCD will now sync all infra from ${ARGOCD_REPO_URL}"
 
-  # Load the Cloudflare token into the cluster as a Secret (idempotent via dry-run + apply)
-  kubectl create secret generic cloudflare-api-token \
-    --namespace cert-manager \
-    --context "kind-${CLUSTER_NAME}" \
-    --from-literal=api-token="${CLOUDFLARE_TOKEN}" \
-    --dry-run=client -o yaml \
-    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
+# Print credentials
+echo ""
+ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret \
+  --namespace "$ARGOCD_NS" \
+  --context "kind-${CLUSTER_NAME}" \
+  -o jsonpath="{.data.password}" | base64 -d)
+echo "  ArgoCD: https://argocd.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+echo "  Credentials: admin / ${ARGOCD_PASSWORD}"
+echo "  (change this after first login)"
 
-  # Expand $ACME_EMAIL / $ACME_DOMAIN / $ACME_SUBDOMAIN in the manifest before applying.
-  # Variables are passed inline rather than relying on the environment being sourced,
-  # which can silently produce empty substitutions when run via shell scripts.
-  ACME_EMAIL="$ACME_EMAIL" ACME_DOMAIN="$ACME_DOMAIN" ACME_SUBDOMAIN="$ACME_SUBDOMAIN" \
-    envsubst '${ACME_EMAIL} ${ACME_DOMAIN} ${ACME_SUBDOMAIN}' \
-    < "${MANIFESTS_DIR}/cert-manager/cloudflare-issuer.yaml" \
-    | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-
-  echo "  Waiting for wildcard cert dev-tls in ${EG_NS} (ACME DNS-01 challenge may take ~60 s)..."
-  kubectl wait certificate dev-tls \
-    --namespace "$EG_NS" \
-    --context "kind-${CLUSTER_NAME}" \
-    --for=condition=Ready \
-    --timeout=300s
-  echo "  ✓ dev-tls ready — https://*.${ACME_SUBDOMAIN}.${ACME_DOMAIN} available"
-fi
-
-# -- HTTPS redirect + Hubble UI HTTPRoute (applied after gateway + cert are ready) --
-if [[ "$WITH_GATEWAY" == true ]]; then
-  echo ""
-  echo "==> Applying HTTPS redirect..."
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/envoy-gateway/https-redirect.yaml"
-  echo "  ✓ HTTP → HTTPS redirect active"
-
-  echo ""
-  echo "==> Applying Hubble UI HTTPRoute..."
-  if [[ "$WITH_ACME" == true ]]; then
-    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
-      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
-      < "${MANIFESTS_DIR}/hubble/httproute.yaml" \
-      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-    echo "  ✓ Hubble UI: http://hubble.localhost | https://hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
-  else
-    kubectl apply --context "kind-${CLUSTER_NAME}" \
-      -f "${MANIFESTS_DIR}/hubble/httproute-local.yaml"
-    echo "  ✓ Hubble UI: http://hubble.localhost"
-  fi
-fi
-
-# -- kube-prometheus-stack (optional) ----------------------------------------
-if [[ "$WITH_MONITORING" == true ]]; then
-  echo ""
-  echo "==> Installing kube-prometheus-stack ${PROM_STACK_VERSION}..."
-  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
-  helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-    --namespace "$PROM_NS" \
-    --kube-context "kind-${CLUSTER_NAME}" \
-    --version "${PROM_STACK_VERSION}" \
-    --create-namespace \
-    --set grafana.adminPassword=admin \
-    --set grafana.service.type=ClusterIP \
-    --set prometheus.prometheusSpec.retention=24h \
-    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
-    --set alertmanager.enabled=false \
-    --wait
-  echo "  ✓ Prometheus + Grafana installed"
-
-  echo ""
-  echo "==> Applying Prometheus RBAC + ServiceMonitors + Grafana dashboards..."
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/monitoring/prometheus-rbac.yaml"
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/monitoring/servicemonitors.yaml"
-  kubectl apply --context "kind-${CLUSTER_NAME}" \
-    -f "${MANIFESTS_DIR}/monitoring/dashboards.yaml"
-  echo "  ✓ Cilium, cert-manager, and Envoy Gateway ServiceMonitors + dashboards installed"
-
-  if [[ "$WITH_ACME" == true ]]; then
-    echo ""
-    echo "==> Applying Grafana HTTPRoute..."
-    ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
-      envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
-      < "${MANIFESTS_DIR}/monitoring/grafana-httproute.yaml" \
-      | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-    echo "  ✓ Grafana: https://grafana.${ACME_SUBDOMAIN}.${ACME_DOMAIN} (admin/admin)"
-  fi
-fi
-
-# -- ArgoCD (optional) -------------------------------------------------------
-if [[ "$WITH_ARGOCD" == true ]]; then
-  # --with-gateway is required for the HTTPRoute
-  if [[ "$WITH_GATEWAY" == false ]]; then
-    echo "  ! --with-argocd requires --with-gateway — skipping ArgoCD install"
-  else
-    echo ""
-    echo "==> Installing ArgoCD ${ARGOCD_VERSION}..."
-    helm repo add argo https://argoproj.github.io/argo-helm --force-update
-    helm upgrade --install argocd argo/argo-cd \
-      --namespace "$ARGOCD_NS" \
-      --kube-context "kind-${CLUSTER_NAME}" \
-      --version "${ARGOCD_VERSION}" \
-      --create-namespace \
-      --set configs.params."server\.insecure"=true \
-      --wait
-    echo "  ✓ ArgoCD installed"
-
-    echo ""
-    echo "==> Applying ArgoCD HTTPRoute..."
-    if [[ "$WITH_ACME" == true ]]; then
-      ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}" ACME_DOMAIN="${ACME_DOMAIN:-}" \
-        envsubst '${ACME_SUBDOMAIN} ${ACME_DOMAIN}' \
-        < "${MANIFESTS_DIR}/argocd/httproute.yaml" \
-        | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-      echo "  ✓ ArgoCD UI: https://argocd.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
-    else
-      kubectl apply --context "kind-${CLUSTER_NAME}" \
-        -f "${MANIFESTS_DIR}/argocd/httproute-local.yaml"
-      echo "  ✓ ArgoCD UI: http://argocd.localhost"
-    fi
-
-    # Wire up the app-of-apps pointing at k8s/apps/ in this repo.
-    # Requires the repo URL — derive it from git if not set in user.conf.
-    ARGOCD_REPO_URL="${ARGOCD_REPO_URL:-$(git -C "${SCRIPT_DIR}" remote get-url origin 2>/dev/null || true)}"
-    if [[ -z "$ARGOCD_REPO_URL" ]]; then
-      echo "  ! ARGOCD_REPO_URL not set and no git remote found — skipping app-of-apps"
-      echo "    Set ARGOCD_REPO_URL in user.conf and re-run:"
-      echo "      kubectl apply -f ${MANIFESTS_DIR}/argocd/app-of-apps.yaml"
-    else
-      echo ""
-      echo "==> Applying app-of-apps (repo: ${ARGOCD_REPO_URL})..."
-      ARGOCD_REPO_URL="$ARGOCD_REPO_URL" \
-        envsubst '${ARGOCD_REPO_URL}' \
-        < "${MANIFESTS_DIR}/argocd/app-of-apps.yaml" \
-        | kubectl apply --context "kind-${CLUSTER_NAME}" -f -
-      echo "  ✓ ArgoCD will sync k8s/apps/ from ${ARGOCD_REPO_URL}"
-    fi
-
-    # Print initial admin password
-    echo ""
-    ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret \
-      --namespace "$ARGOCD_NS" \
-      --context "kind-${CLUSTER_NAME}" \
-      -o jsonpath="{.data.password}" | base64 -d)
-    echo "  ArgoCD credentials: admin / ${ARGOCD_PASSWORD}"
-    echo "  (change this after first login)"
-  fi
-fi
-
-# -- smoke test (skip with --no-test) ----------------------------------------
+# -- smoke test --------------------------------------------------------------
 if [[ "$RUN_TESTS" == true ]]; then
   echo ""
   echo "==> Running Cilium connectivity tests (this takes several minutes)..."
@@ -512,5 +338,17 @@ if [[ "$RUN_TESTS" == true ]]; then
 fi
 
 echo ""
-echo "Cluster '$CLUSTER_NAME' is ready."
+echo "Cluster '$CLUSTER_NAME' is bootstrapped."
 echo "  kubectl config use-context kind-${CLUSTER_NAME}"
+echo ""
+echo "  ArgoCD is syncing the following from git:"
+echo "    infra/envoy-gateway    — Envoy Gateway controller + config"
+echo "    infra/cert-manager     — cert-manager + ClusterIssuer + Certificate"
+echo "    infra/monitoring       — Prometheus + Grafana + dashboards"
+echo "    infra/hubble           — Hubble UI HTTPRoute"
+echo "    infra/workloads        — k8s/apps/ (your app workloads)"
+echo ""
+echo "  Services (available once ArgoCD syncs, ~2-3 min):"
+echo "    https://argocd.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+echo "    https://grafana.${ACME_SUBDOMAIN}.${ACME_DOMAIN}  (admin/admin)"
+echo "    https://hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"

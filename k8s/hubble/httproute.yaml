@@ -1,6 +1,3 @@
-# Templated by scripts/cluster.sh via envsubst — do not apply directly.
-# Variables: ACME_SUBDOMAIN, ACME_DOMAIN
-# Used with --with-acme: registers hubble.localhost + hubble.<subdomain>.<domain> on https.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -13,7 +10,7 @@ spec:
       sectionName: https
   hostnames:
     - "hubble.localhost"
-    - "hubble.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+    - "hubble.dev.example.com"
   rules:
     - matches:
         - path:

@@ -1,10 +1,7 @@
-# Cloudflare DNS-01 ACME issuer — templated by scripts/cluster.sh via envsubst.
-# Do NOT apply this file directly; variables like $ACME_EMAIL won't be substituted.
-#
-# Variables (set in user.conf):
-#   ACME_EMAIL       — Let's Encrypt registration email
-#   ACME_DOMAIN      — root domain (e.g. example.com)
-#   ACME_SUBDOMAIN   — dev subdomain prefix (e.g. dev)
+# ClusterIssuer and Certificate for Let's Encrypt via Cloudflare DNS-01.
+# ACME_EMAIL is read from the cluster-values ConfigMap (populated by cluster.sh).
+# CLOUDFLARE_TOKEN comes from the cloudflare-api-token Secret (created by cluster.sh).
+# ACME_WILDCARD and ACME_BASE are substituted via Kustomize from cluster.env.
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -13,7 +10,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: ${ACME_EMAIL}
+    email: placeholder@example.com
     privateKeySecretRef:
       name: letsencrypt-cloudflare-key
     solvers:
@@ -24,7 +21,7 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - ${ACME_DOMAIN}
+            - example.com
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -33,10 +30,10 @@ metadata:
   namespace: envoy-gateway-system
 spec:
   secretName: dev-tls
-  commonName: "*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+  commonName: "*.dev.example.com"
   dnsNames:
-    - "*.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
-    - "${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+    - "*.dev.example.com"
+    - "dev.example.com"
   issuerRef:
     name: letsencrypt-cloudflare
     kind: ClusterIssuer

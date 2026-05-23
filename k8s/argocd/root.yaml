@@ -1,24 +1,25 @@
-# ArgoCD Application that watches k8s/apps/ in this repo.
-# Any manifest dropped into k8s/apps/ is automatically synced to the cluster.
+# Root app-of-apps — manages all child Application CRs in k8s/argocd/apps/.
+# Applied once by cluster.sh after ArgoCD is installed.
+# From that point on, adding a file to k8s/argocd/apps/ and pushing to git
+# is all that's needed to deploy a new component.
 #
-# Templated by scripts/cluster.sh via envsubst — do not apply directly.
+# Templated by cluster.sh via envsubst.
 # Variables: ARGOCD_REPO_URL
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: apps
+  name: infra
   namespace: argocd
-  # Deleting this Application will not delete the resources it manages
   finalizers: []
 spec:
   project: default
   source:
     repoURL: ${ARGOCD_REPO_URL}
     targetRevision: HEAD
-    path: k8s/apps
+    path: k8s/argocd/apps
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
