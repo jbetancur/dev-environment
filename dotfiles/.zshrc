@@ -45,9 +45,6 @@ alias ls="eza --icons=always"
 export GOPATH="$HOME/go"
 export PATH="$PATH:$GOPATH/bin"
 
-# ---- Zoxide (better cd) ----
-eval "$(zoxide init zsh)"
-
 # ---- nvm (Node Version Manager) ----
 export NVM_DIR="$HOME/.nvm"
 [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
@@ -58,14 +55,17 @@ export PYENV_ROOT="$HOME/.pyenv"
 [[ -d "$PYENV_ROOT/bin" ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 command -v pyenv &>/dev/null && eval "$(pyenv init -)"
 
-alias cd="z"
-alias jb="z ${HOME}/Development/github.com/jbetancur"
-
 # ---- Atuin (shell history) ----
 command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 
-# Shell completions
+# Shell completions (must run before tools that use compdef, e.g. zoxide)
 autoload -Uz compinit && compinit
 command -v kubectl &>/dev/null && source <(kubectl completion zsh)
 command -v gh     &>/dev/null && source <(gh completion -s zsh)
 source <(fzf --zsh)
+
+# ---- Zoxide (better cd) ----
+eval "$(zoxide init zsh)"
+
+alias cd="z"
+alias jb="z ${HOME}/Development/github.com/jbetancur"

@@ -15,20 +15,26 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PULUMI_ENV="${SCRIPT_DIR}/../pulumi/.env"
 USER_CONF="${SCRIPT_DIR}/../user.conf"
 
-if [[ ! -f "$USER_CONF" ]]; then
-  echo "user.conf not found — nothing to sync"
+# Load domain values from pulumi/.env (primary source).
+if [[ -f "$PULUMI_ENV" ]]; then
+  source "$PULUMI_ENV"
+elif [[ -f "$USER_CONF" ]]; then
+  source "$USER_CONF"
+else
+  echo "pulumi/.env not found — nothing to sync"
   exit 0
 fi
-source "$USER_CONF"
 
-ACME_SUBDOMAIN="${ACME_SUBDOMAIN:-}"
-ACME_DOMAIN="${ACME_DOMAIN:-}"
+# pulumi/.env uses SUBDOMAIN/DOMAIN; user.conf used ACME_SUBDOMAIN/ACME_DOMAIN.
+SUBDOMAIN="${SUBDOMAIN:-${ACME_SUBDOMAIN:-}}"
+DOMAIN="${DOMAIN:-${ACME_DOMAIN:-}}"
 HOMELAB_DNS="${HOMELAB_DNS:-10.0.10.5}"
 
-if [[ -z "$ACME_SUBDOMAIN" || -z "$ACME_DOMAIN" ]]; then
-  echo "ACME_SUBDOMAIN or ACME_DOMAIN not set in user.conf — nothing to sync"
+if [[ -z "$SUBDOMAIN" || -z "$DOMAIN" ]]; then
+  echo "SUBDOMAIN or DOMAIN not set in pulumi/.env — nothing to sync"
   exit 0
 fi
 
@@ -47,7 +53,7 @@ SERVICES=(
 hosts_block() {
   echo "$MARKER_START"
   for svc in "${SERVICES[@]}"; do
-    echo "127.0.0.1 ${svc}.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+    echo "127.0.0.1 ${svc}.${SUBDOMAIN}.${DOMAIN}"
   done
   echo "$MARKER_END"
 }
@@ -57,7 +63,7 @@ add_entries() {
   sed -i '' "/$MARKER_START/,/$MARKER_END/d" "$HOSTS_FILE" 2>/dev/null || true
   echo "" >> "$HOSTS_FILE"
   hosts_block >> "$HOSTS_FILE"
-  echo "  dns-sync: added entries for *.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+  echo "  dns-sync: added entries for *.${SUBDOMAIN}.${DOMAIN}"
 }
 
 remove_entries() {
@@ -69,7 +75,7 @@ remove_entries() {
   sed -i '' "/$MARKER_START/,/$MARKER_END/d" "$HOSTS_FILE"
   # Remove any trailing blank line left behind
   sed -i '' -e '/^$/N;/^\n$/d' "$HOSTS_FILE"
-  echo "  dns-sync: removed entries for *.${ACME_SUBDOMAIN}.${ACME_DOMAIN}"
+  echo "  dns-sync: removed entries for *.${SUBDOMAIN}.${DOMAIN}"
 }
 
 is_home() {

@@ -6,14 +6,12 @@ metadata:
   name: monitoring
   namespace: argocd
   finalizers: []
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
     repoURL: https://prometheus-community.github.io/helm-charts
     chart: kube-prometheus-stack
-    targetRevision: 70.4.2
+    targetRevision: 85.3.0
     helm:
       parameters:
         - name: grafana.adminPassword
@@ -44,8 +42,6 @@ metadata:
   name: monitoring-config
   namespace: argocd
   finalizers: []
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:
@@ -61,9 +57,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-    retry:
-      limit: 10
-      backoff:
-        duration: 10s
-        factor: 2
-        maxDuration: 3m

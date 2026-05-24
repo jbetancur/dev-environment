@@ -1,0 +1,10 @@
+name: dev-environment
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: Bootstraps a local kind cluster with Cilium, ArgoCD, Envoy Gateway, and cert-manager.
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: ""

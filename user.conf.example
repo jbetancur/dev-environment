@@ -23,22 +23,8 @@ COMMS=proton-mail
 
 # Citrix session window pattern — used to route spawned sessions to workspace W
 # Run: aerospace list-windows --all | grep -i citrix  to find your pattern
-# Then uncomment if.window-title-regex-substring in aerospace.toml and set it.
 # DO NOT commit this value — it may expose internal app/desktop names.
 # WORK_CITRIX_WINDOW_PATTERN=YOUR_PATTERN_HERE
-
-# ── Kubernetes / cluster ───────────────────────────────────────────────────────
-# Used by: ./scripts/cluster.sh --with-acme
-#
-# ACME_EMAIL          — Let's Encrypt registration email
-# ACME_DOMAIN         — root domain you own (cert issued for *.<ACME_SUBDOMAIN>.<ACME_DOMAIN>)
-# ACME_SUBDOMAIN      — subdomain prefix for local dev (e.g. "dev" → *.dev.example.com)
-# CLOUDFLARE_TOKEN    — Cloudflare API token with Zone:DNS:Edit for ACME_DOMAIN
-#                       DO NOT commit this value.
-# ACME_EMAIL=you@example.com
-# ACME_DOMAIN=example.com
-# ACME_SUBDOMAIN=dev
-# CLOUDFLARE_TOKEN=YOUR_TOKEN_HERE
 
 # ── DNS sync ───────────────────────────────────────────────────────────────────
 # Used by: ./scripts/dns-sync.sh (auto-triggered on network change via launchd)
@@ -47,11 +33,3 @@ COMMS=proton-mail
 #               When reachable: /etc/hosts entries are removed (local DNS handles it)
 #               When unreachable: /etc/hosts entries are added for offline/away access
 # HOMELAB_DNS=10.0.10.5
-
-# ── ArgoCD ────────────────────────────────────────────────────────────────────
-# Used by: ./scripts/cluster.sh --with-argocd
-#
-# ARGOCD_REPO_URL — git remote URL ArgoCD uses to sync k8s/apps/.
-#                   Auto-detected from `git remote get-url origin` if not set.
-#                   Must be reachable from inside the cluster (SSH or HTTPS).
-# ARGOCD_REPO_URL=https://github.com/you/dev-environment.git

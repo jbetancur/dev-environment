@@ -1,40 +1,11 @@
----
-# Envoy Gateway controller — installed via Helm
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: envoy-gateway
-  namespace: argocd
-  finalizers: []
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-spec:
-  project: default
-  source:
-    repoURL: oci://docker.io/envoyproxy/gateway-helm
-    chart: gateway-helm
-    targetRevision: v1.7.2
-    helm:
-      skipCrds: true
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: envoy-gateway-system
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
----
-# Envoy Gateway config — GatewayClass, EnvoyProxy, Gateway, HTTPRoutes
+# Envoy Gateway config — GatewayClass, EnvoyProxy, HTTPS redirect.
+# The controller itself is installed by Pulumi (src/envoy.ts).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: envoy-gateway-config
   namespace: argocd
   finalizers: []
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:

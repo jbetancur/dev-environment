@@ -1,4 +1,10 @@
 user.conf
+
+# Pulumi
+pulumi/node_modules/
+pulumi/bin/
+pulumi/Pulumi.*.yaml
+pulumi/.env
 .config/iterm2/AppSupport/SavedState/*
 .config/nvim/lazy-lock.json
 
@@ -8,3 +14,6 @@ dotfiles/.config/btop/btop
 dotfiles/.config/gh/gh
 dotfiles/.config/nvim/nvim
 dotfiles/.config/vscode
+
+node_modules/
+pulumi/node_modules/

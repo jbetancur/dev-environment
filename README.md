@@ -94,6 +94,7 @@ cd dev-environment
 - Docker Desktop
 - `kind`, `kubectl`, `kubernetes-cli`, `k9s`
 - `kubectx` / `kubens` — fast context and namespace switching
+- `pulumi` — cluster bootstrap
 
 ### Apps
 
@@ -270,6 +271,75 @@ Launch with `lazygit` from any Git repo.
 | `F` | Fetch |
 | `B` | Branch menu |
 | `?` | Show full keybind help |
+
+---
+
+### Kubernetes cluster bootstrap (Pulumi)
+
+The `pulumi/` directory manages the full local cluster lifecycle — kind, Cilium, ArgoCD, Envoy Gateway, cert-manager, and monitoring. No hardcoded values anywhere; all config is per-user and gitignored.
+
+#### What gets created
+
+| Layer | Tool | How |
+| --- | --- | --- |
+| kind cluster + local registry | Pulumi | `pulumi up` |
+| Cilium CNI + metrics-server | Pulumi | `pulumi up` |
+| ArgoCD | Pulumi (Helm) | `pulumi up` |
+| Cloudflare secret | Pulumi | `pulumi up` (token encrypted at rest) |
+| Envoy Gateway, cert-manager, monitoring | ArgoCD | auto-synced from `k8s/` after bootstrap |
+| Wildcard TLS cert, Gateway, HTTPRoutes | Pulumi | `pulumi up` (real domain values injected) |
+
+#### Prerequisites
+
+```sh
+brew install pulumi
+cd pulumi && npm install
+```
+
+#### First-time setup
+
+```sh
+cp pulumi/.env.example pulumi/.env
+# edit pulumi/.env with your values
+./pulumi/setup.sh
+```
+
+`.env` is gitignored — your domain, email, and Cloudflare token never touch the repo. `setup.sh` creates your Pulumi stack and encrypts the token at rest in a local `Pulumi.<name>.yaml` (also gitignored).
+
+#### Bootstrap the cluster
+
+```sh
+cd pulumi
+pulumi up
+```
+
+Pulumi previews every resource before applying and asks for confirmation. The full run takes ~5 min. When done, outputs show your URLs and the initial ArgoCD password:
+
+```text
+argocdUrl:         https://argocd.dev.example.com
+argocdCredentials: admin / <generated-password>
+grafanaUrl:        https://grafana.dev.example.com
+hubbleUrl:         https://hubble.dev.example.com
+```
+
+ArgoCD then syncs monitoring and remaining infra from git — allow another 2-3 min for those to become healthy.
+
+#### Tear down
+
+```sh
+pulumi destroy
+```
+
+#### Day-to-day
+
+| Task | Command |
+| --- | --- |
+| Bootstrap cluster | `pulumi up` |
+| Tear down cluster | `pulumi destroy` |
+| Add/change a k8s app | edit `k8s/` → `git push` (ArgoCD auto-syncs) |
+| Change domain / token | edit `pulumi/.env` → `./pulumi/setup.sh` → `pulumi up` |
+| See ArgoCD password | `./scripts/argocd-ui.sh` |
+| Build + deploy a local image | `./scripts/deploy.sh <image> <dir> <ns> <deployment>` |
 
 ---
 
