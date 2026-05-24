@@ -1,3 +1,27 @@
+# GatewayConfig — tells the AI gateway controller to inject the extproc sidecar
+# into the Envoy pod for the Gateway annotated with this config.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: GatewayConfig
+metadata:
+  name: ai-gateway-config
+  namespace: ai-gateway
+spec: {}
+---
+# ClientTrafficPolicy — raises Envoy's default 32KiB buffer to 50MiB for LLM responses
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: ai-buffer-limit
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: local
+      namespace: envoy-gateway-system
+  connection:
+    bufferLimit: 50Mi
+---
 # AIServiceBackend — wraps the Envoy Gateway Backend with OpenAI schema awareness
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIServiceBackend
