@@ -39,9 +39,13 @@ export const cloudflareToken = certMode === "letsencrypt"
   : pulumi.output("unused");
 
 // Pinned versions — override per-stack if needed
-export const argoCdVersion = getOrDefault("argoCdVersion", "9.5.15");
-export const envoyGatewayVersion = getOrDefault("envoyGatewayVersion", "v1.8.0");
-export const ciliumVersion = getOrDefault("ciliumVersion", "1.19.4");
+export const argoCdVersion                = getOrDefault("argoCdVersion",                "9.5.15");
+export const envoyGatewayVersion          = getOrDefault("envoyGatewayVersion",          "v1.8.0");
+export const ciliumVersion                = getOrDefault("ciliumVersion",                "1.19.4");
+export const certManagerVersion           = getOrDefault("certManagerVersion",           "v1.20.2");
+export const kubePrometheusStackVersion   = getOrDefault("kubePrometheusStackVersion",   "85.3.0");
+export const lokiVersion                  = getOrDefault("lokiVersion",                  "7.0.0");
+export const promtailVersion              = getOrDefault("promtailVersion",              "6.17.1");
 
 // Local registry
 export const registryName = getOrDefault("registryName", "kind-registry");

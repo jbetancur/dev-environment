@@ -1,24 +1,22 @@
 # k8s
 
-Local kind cluster bootstrapped with Cilium + ArgoCD. After bootstrap, ArgoCD
-manages everything else — Envoy Gateway, cert-manager, monitoring, and your app
-workloads — by syncing from this repo.
+Local kind cluster bootstrapped with Pulumi. After bootstrap, ArgoCD manages everything else — Envoy Gateway, cert-manager, monitoring (Prometheus + Grafana + Loki), and app workloads — by syncing from this repo.
 
 ## Quick start
 
-See `pulumi/` for cluster bootstrap. Configuration lives in your Pulumi stack
-(`Pulumi.<name>.yaml`) — no files to edit here.
+See `pulumi/` for cluster bootstrap. Config lives in `pulumi/.env` (gitignored).
 
 ```bash
-cd pulumi
-pulumi stack select <your-name>
-pulumi up
+cp pulumi/.env.example pulumi/.env
+# edit .env with your values
+./pulumi/setup.sh
+cd pulumi && pulumi up
 ```
 
 To tear down:
 
 ```bash
-pulumi destroy
+cd pulumi && pulumi destroy
 ```
 
 ## What ArgoCD manages
@@ -32,17 +30,18 @@ Once Pulumi hands off to ArgoCD, it continuously syncs:
 | `cert-manager` | cert-manager Helm release |
 | `cert-manager-config` | ClusterIssuer + wildcard Certificate |
 | `monitoring` | kube-prometheus-stack Helm release |
-| `monitoring-config` | Prometheus RBAC, ServiceMonitors, Grafana dashboards + HTTPRoute |
+| `loki` | Loki log aggregation (SingleBinary, filesystem storage) |
+| `promtail` | Promtail DaemonSet — ships pod logs to Loki |
+| `monitoring-config` | Prometheus RBAC, ServiceMonitors, Grafana dashboards + datasources |
 | `hubble` | Hubble UI HTTPRoute |
 | `workloads` | Everything in `k8s/apps/` |
 
 ## Deploying an app
 
 1. Copy `k8s/example.yaml`, update image/namespace/hostname, place it in `k8s/apps/`.
-2. Add the hostname to `scripts/dns-sync.sh` `SERVICES`.
-3. Push to git — ArgoCD syncs automatically.
+2. Push to git — ArgoCD syncs automatically within ~30s.
 
-To build and push the image locally:
+To build and push the image to the local registry:
 
 ```bash
 ./scripts/deploy.sh <image-name> <dockerfile-dir> <namespace> <deployment>
@@ -52,13 +51,32 @@ To build and push the image locally:
 
 Traffic reaches the cluster via hostPorts 80/443 on the control-plane node → `127.0.0.1`.
 
-**At home** (Technitium on `10.0.10.5`): add `*.dev.example.com A 127.0.0.1` to your local DNS zone.
+Add a wildcard record pointing to `127.0.0.1` in your local DNS (e.g. Technitium):
 
-**Away from home**: run the DNS sync script:
+```text
+*.k8s.yourdomain.com  A  127.0.0.1
+```
+
+Away from home, run the DNS sync script:
 
 ```bash
-sudo ./scripts/dns-sync.sh    # auto-detects home vs away
+sudo ./scripts/dns-sync.sh
 ```
+
+## Services
+
+Once the cluster is healthy, these URLs are available:
+
+| Service | URL |
+| ------- | --- |
+| ArgoCD | `https://argocd.k8s.<domain>` |
+| Grafana (metrics + logs) | `https://grafana.k8s.<domain>` |
+| Hubble (network flows) | `https://hubble.k8s.<domain>` |
+
+Grafana credentials: `admin / admin` (set via `grafana.adminPassword` in the monitoring app).
+
+Loki logs are available in Grafana → Explore → select the **Loki** datasource.
+The **Logs / App** dashboard is pre-provisioned under Dashboards.
 
 ## Directory structure
 
@@ -68,24 +86,25 @@ k8s/
 ├── apps/                 # App workloads — synced by ArgoCD automatically
 ├── argocd/
 │   └── apps/             # Child Application CRs (one per infra component)
-├── cert-manager/         # (managed by ArgoCD — ClusterIssuer + Certificate applied by Pulumi)
 ├── envoy-gateway/        # GatewayClass, EnvoyProxy, HTTPS redirect
-├── hubble/               # Hubble UI kustomization
-├── monitoring/           # Prometheus RBAC, ServiceMonitors, Grafana dashboards
+├── monitoring/           # Prometheus RBAC, ServiceMonitors, Grafana dashboards + datasources
 └── registry/             # LocalRegistryHosting ConfigMap
 ```
 
 ## Known gotchas
 
 - **Envoy proxy rollout deadlock** — proxy pods use hostPorts 80/443. If a rollout
-  hangs, manually delete the old proxy pod.
+  hangs with a scheduling error, manually delete the old proxy pod.
 
 - **cert-manager DNS-01 + CoreDNS** — cert-manager is configured with
   `--dns01-recursive-nameservers-only` to bypass CoreDNS for ACME challenges.
 
-- **Grafana dashboard datasource** — dashboards from Grafana.com must use the
-  object datasource form `{"type": "prometheus", "uid": "prometheus"}`, not
-  the old `${DS_PROMETHEUS}` string format.
+- **Grafana dashboard datasource** — dashboards must use the object form
+  `{"type": "prometheus", "uid": "prometheus"}` (not the old `${DS_PROMETHEUS}` string).
+  Loki dashboards use `{"type": "loki", "uid": "loki"}`.
 
-- **ArgoCD repo access** — `repoUrl` must be an HTTPS URL for public repos.
-  Private repos need a deploy key or token configured in ArgoCD.
+- **ArgoCD `finalizers: []` drift** — omit `finalizers` entirely from Application
+  manifests; an explicit empty list causes spurious out-of-sync diffs.
+
+- **Loki cache memory** — the Loki 7.x chart enables memcached chunks/results
+  caches by default (~10 GiB requests). Both are disabled in our config for dev.

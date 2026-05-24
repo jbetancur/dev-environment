@@ -1,5 +1,6 @@
 ---
 # kube-prometheus-stack — installed via Helm
+# Version source of truth: pulumi/src/config.ts (kubePrometheusStackVersion) / pulumi/.env (KUBE_PROMETHEUS_STACK_VERSION)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -35,6 +36,7 @@ spec:
       - ServerSideApply=true
 ---
 # Loki — log aggregation backend (SingleBinary mode, filesystem storage, dev-sized)
+# Version source of truth: pulumi/src/config.ts (lokiVersion) / pulumi/.env (LOKI_VERSION)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -98,6 +100,7 @@ spec:
       - ServerSideApply=true
 ---
 # Promtail — DaemonSet log collector, ships to Loki
+# Version source of truth: pulumi/src/config.ts (promtailVersion) / pulumi/.env (PROMTAIL_VERSION)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

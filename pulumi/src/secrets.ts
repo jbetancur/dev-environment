@@ -19,6 +19,6 @@ export const cloudflareSecret = certMode === "letsencrypt"
         metadata: { name: "cloudflare-api-token", namespace: "cert-manager" },
         stringData: { "api-token": cloudflareToken },
       },
-      { provider, dependsOn: certManagerNs },
+      { provider, dependsOn: certManagerNs, retainOnDelete: true },
     )
   : undefined;

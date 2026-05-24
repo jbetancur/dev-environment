@@ -59,7 +59,7 @@ if (certMode === "letsencrypt") {
         },
       },
     },
-    { provider, dependsOn: [certManagerReady, cloudflareSecret!], deleteBeforeReplace: true },
+    { provider, dependsOn: [certManagerReady, cloudflareSecret!], deleteBeforeReplace: true, retainOnDelete: true },
   );
 
   devTlsCert = new k8s.apiextensions.CustomResource(
@@ -75,7 +75,7 @@ if (certMode === "letsencrypt") {
         issuerRef: { name: "cluster-issuer", kind: "ClusterIssuer", group: "cert-manager.io" },
       },
     },
-    { provider, dependsOn: issuer, retainOnDelete: true },
+    { provider, dependsOn: issuer, retainOnDelete: true, ignoreChanges: ["status"] },
   );
 
 } else {
@@ -88,7 +88,7 @@ if (certMode === "letsencrypt") {
       metadata: { name: "selfsigned-issuer" },
       spec: { selfSigned: {} },
     },
-    { provider, dependsOn: certManagerReady },
+    { provider, dependsOn: certManagerReady, retainOnDelete: true },
   );
 
   const caCert = new k8s.apiextensions.CustomResource(
@@ -104,7 +104,7 @@ if (certMode === "letsencrypt") {
         issuerRef: { name: "selfsigned-issuer", kind: "ClusterIssuer", group: "cert-manager.io" },
       },
     },
-    { provider, dependsOn: selfSignedIssuer },
+    { provider, dependsOn: selfSignedIssuer, retainOnDelete: true },
   );
 
   const caIssuer = new k8s.apiextensions.CustomResource(
@@ -117,7 +117,7 @@ if (certMode === "letsencrypt") {
         ca: { secretName: "local-ca-secret" },
       },
     },
-    { provider, dependsOn: caCert, deleteBeforeReplace: true },
+    { provider, dependsOn: caCert, deleteBeforeReplace: true, retainOnDelete: true },
   );
 
   devTlsCert = new k8s.apiextensions.CustomResource(
@@ -133,7 +133,7 @@ if (certMode === "letsencrypt") {
         issuerRef: { name: "cluster-issuer", kind: "ClusterIssuer", group: "cert-manager.io" },
       },
     },
-    { provider, dependsOn: caIssuer, retainOnDelete: true },
+    { provider, dependsOn: caIssuer, retainOnDelete: true, ignoreChanges: ["status"] },
   );
 }
 

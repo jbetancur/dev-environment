@@ -12,6 +12,18 @@ echo ""
 echo "==> Installing packages from Brewfile..."
 brew bundle --file="$REPO_ROOT/Brewfile"
 
+# ── Helm repos ────────────────────────────────────────────────────────────────
+echo ""
+echo "==> Adding Helm repos..."
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana               https://grafana.github.io/helm-charts
+helm repo add jetstack              https://charts.jetstack.io
+helm repo add argo                  https://argoproj.github.io/argo-helm
+helm repo add cilium                https://helm.cilium.io
+helm repo add envoy-gateway         https://charts.envoyproxy.io
+helm repo update
+echo "  ✓ Helm repos added"
+
 # ── User preferences (user.conf) ──────────────────────────────────────────────
 echo ""
 echo "==> Loading user preferences..."
