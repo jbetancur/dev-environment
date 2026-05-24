@@ -1,0 +1,16 @@
+# BackendTrafficPolicy — raises the request timeout and response buffer for slow/large upstream responses (e.g. gpt-image-1 returns ~3MB base64)
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: gateway-timeout
+  namespace: envoy-gateway-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: local
+  timeout:
+    http:
+      requestTimeout: 300s
+  connection:
+    bufferLimit: 100Mi

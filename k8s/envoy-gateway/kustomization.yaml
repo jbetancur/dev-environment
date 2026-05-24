@@ -4,3 +4,5 @@ resources:
   - envoy-proxy-kind.yaml
   - gatewayclass.yaml
   - https-redirect.yaml
+  - gateway-timeout.yaml
+  - response-buffer.yaml

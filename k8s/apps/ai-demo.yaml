@@ -73,6 +73,13 @@ data:
         .msg.assistant { align-self: flex-start; background: #1e293b; border: 1px solid #334155; }
         .msg.error { align-self: flex-start; background: #7f1d1d; border: 1px solid #991b1b; color: #fca5a5; }
         .msg img { max-width: 100%; border-radius: 0.5rem; display: block; }
+        .msg.loading { color: transparent; position: relative; min-width: 3rem; min-height: 1.5rem; }
+        .msg.loading::after { content: ''; position: absolute; inset: 0; display: flex; align-items: center; }
+        @keyframes dots { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+        .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; margin: 0 2px; animation: dots 1.2s infinite; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        .msg.loading-img { min-width: 200px; min-height: 80px; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .msg.assistant { white-space: normal; }
         .msg.assistant p { margin: 0 0 0.5em; }
         .msg.assistant p:last-child { margin-bottom: 0; }
@@ -186,6 +193,13 @@ data:
           input.setSelectionRange(input.value.length, input.value.length);
         });
 
+        function dots() {
+          const w = document.createElement('div');
+          w.className = 'msg assistant loading-img';
+          [1,2,3].forEach(() => { const d = document.createElement('span'); d.className='dot'; w.appendChild(d); });
+          return w;
+        }
+
         function addMsg(role, text) {
           const el = document.createElement('div');
           el.className = 'msg ' + role;
@@ -198,11 +212,16 @@ data:
         function addMarkdownMsg(role) {
           const el = document.createElement('div');
           el.className = 'msg ' + role;
+          // show animated dots until first token arrives
+          el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+          el.classList.add('loading-img');
           chat.appendChild(el);
           chat.scrollTop = chat.scrollHeight;
           return {
             el,
+            _started: false,
             append(chunk) {
+              if (!this._started) { this._started = true; el.classList.remove('loading-img'); el.innerHTML = ''; }
               this._raw = (this._raw || '') + chunk;
               el.innerHTML = marked.parse(this._raw);
               chat.scrollTop = chat.scrollHeight;
@@ -239,7 +258,9 @@ data:
 
           if (isImageGen(model)) {
             addMsg('user', text);
-            const thinking = addMsg('assistant', '…');
+            const thinking = dots();
+            chat.appendChild(thinking);
+            chat.scrollTop = chat.scrollHeight;
             try {
               const isGptImage = model === 'gpt-image-1';
               const body = { model, prompt: text, n: 1, size: '1024x1024' };

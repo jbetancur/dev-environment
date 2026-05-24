@@ -1,0 +1,16 @@
+# ClientTrafficPolicy — raises the listener connection buffer limit so large upstream
+# responses (gpt-image-1 returns ~3MB base64) are not dropped with response_payload_too_large.
+# Default is 32768 bytes; raised to 20Mi to handle image generation responses.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: response-buffer
+  namespace: envoy-gateway-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: local
+      sectionName: https
+  connection:
+    bufferLimit: 20Mi

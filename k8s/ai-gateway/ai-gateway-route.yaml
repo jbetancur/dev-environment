@@ -29,21 +29,6 @@ spec:
       name: openai-apikey
       namespace: ai-gateway
 ---
-# BackendTrafficPolicy — raises the request timeout for slow image generation models
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: BackendTrafficPolicy
-metadata:
-  name: openai-timeout
-  namespace: ai-gateway
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: openai
-  timeout:
-    http:
-      requestTimeout: 300s
----
 # AIGatewayRoute — routes model-tagged requests to the OpenAI backend
 # Clients set the x-ai-eg-model header to select the model.
 # The route attaches to the shared Gateway via the HTTPRoute in Pulumi (gateway.ts).
