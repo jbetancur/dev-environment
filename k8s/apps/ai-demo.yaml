@@ -18,6 +18,8 @@ spec:
     metadata:
       labels:
         app: ai-demo
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-05-24"
     spec:
       containers:
         - name: ai-demo
@@ -175,7 +177,10 @@ data:
       }
 
       location /v1/ {
-        proxy_pass http://envoy-envoy-gateway-system-local-c3ff217f.envoy-gateway-system.svc.cluster.local:80/v1/;
+        proxy_pass https://envoy-envoy-gateway-system-local-c3ff217f.envoy-gateway-system.svc.cluster.local:443/v1/;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_ssl_name ai.k8s.thebetancurs.net;
         proxy_set_header Host ai.k8s.thebetancurs.net;
         proxy_pass_request_headers on;
       }
