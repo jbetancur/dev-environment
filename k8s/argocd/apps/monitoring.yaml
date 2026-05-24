@@ -50,6 +50,8 @@ spec:
     targetRevision: 7.0.0
     helm:
       parameters:
+        - name: loki.auth_enabled
+          value: "false"
         - name: loki.commonConfig.replication_factor
           value: "1"
         - name: loki.storage.type
