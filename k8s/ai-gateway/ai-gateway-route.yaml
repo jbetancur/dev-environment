@@ -37,6 +37,8 @@ kind: AIGatewayRoute
 metadata:
   name: openai
   namespace: ai-gateway
+  annotations:
+    reconcile-trigger: "1"
 spec:
   parentRefs:
     - name: local
