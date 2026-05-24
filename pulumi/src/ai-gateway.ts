@@ -78,9 +78,6 @@ export const openAiSecret = aiGatewayNs
   : undefined;
 
 // GatewayConfig — must be in the same namespace as the Gateway (envoy-gateway-system).
-// The AI gateway controller reads this to wire the extproc HTTP filter into Envoy's
-// xDS config. Placing it here (Pulumi-owned namespace) avoids the ArgoCD delete-loop
-// that occurs when it's placed in the ArgoCD-managed ai-gateway namespace.
 export const aiGatewayConfig = openAiSecret
   ? new k8s.apiextensions.CustomResource(
       "ai-gateway-config",
@@ -91,5 +88,26 @@ export const aiGatewayConfig = openAiSecret
         spec: {},
       },
       { provider, dependsOn: [openAiSecret] },
+    )
+  : undefined;
+
+// Patch the Envoy Gateway ConfigMap to register the AI gateway controller as an
+// extension server. Without this, Envoy Gateway never calls the AI gateway gRPC
+// server during xDS translation, so the ext_proc filter is never injected into
+// the listener chain — requests reach OpenAI without the Authorization header.
+// Uses a local Command (kubectl patch) since the ConfigMap is owned by the EG Helm chart
+// and server-side apply field conflicts prevent Pulumi from managing it directly.
+export const envoyGatewayConfigPatch = aiGatewayConfig
+  ? new command.local.Command(
+      "envoy-gateway-config-patch",
+      {
+        create: `kubectl patch configmap envoy-gateway-config \
+          -n envoy-gateway-system \
+          --context ${context} \
+          --type merge \
+          -p '{"data":{"envoy-gateway.yaml":"apiVersion: gateway.envoyproxy.io/v1alpha1\\nkind: EnvoyGateway\\nextensionApis:\\n  enableBackend: true\\nextensionManager:\\n  hooks:\\n    xdsTranslator:\\n      translation:\\n        listener:\\n          includeAll: true\\n        route:\\n          includeAll: true\\n        cluster:\\n          includeAll: true\\n        secret:\\n          includeAll: true\\n      post:\\n        - Translation\\n        - Cluster\\n        - Route\\n  service:\\n    fqdn:\\n      hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local\\n      port: 1063\\ngateway:\\n  controllerName: gateway.envoyproxy.io/gatewayclass-controller\\nlogging:\\n  level:\\n    default: info\\nprovider:\\n  kubernetes:\\n    rateLimitDeployment:\\n      container:\\n        image: docker.io/envoyproxy/ratelimit:ff287602\\n      patch:\\n        type: StrategicMerge\\n        value:\\n          spec:\\n            template:\\n              spec:\\n                containers:\\n                - imagePullPolicy: IfNotPresent\\n                  name: envoy-ratelimit\\n    shutdownManager:\\n      image: docker.io/envoyproxy/gateway:v1.8.0\\n  type: Kubernetes\\n"}}'`,
+        delete: `true`,
+      },
+      { dependsOn: [aiGatewayConfig] },
     )
   : undefined;
