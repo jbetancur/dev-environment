@@ -55,6 +55,7 @@ export const certManagerVersion           = getOrDefault("certManagerVersion",  
 export const kubePrometheusStackVersion   = getOrDefault("kubePrometheusStackVersion",   "85.3.0");
 export const lokiVersion                  = getOrDefault("lokiVersion",                  "7.0.0");
 export const promtailVersion              = getOrDefault("promtailVersion",              "6.17.1");
+export const openWebUiVersion             = getOrDefault("openWebUiVersion",             "v0.9.5");
 
 // Local registry
 export const registryName = getOrDefault("registryName", "kind-registry");

@@ -111,3 +111,43 @@ export const envoyGatewayConfigPatch = aiGatewayConfig
       { dependsOn: [aiGatewayConfig] },
     )
   : undefined;
+
+// Restart envoy-gateway so it picks up the updated ConfigMap with the extension server.
+const envoyGatewayRestart = envoyGatewayConfigPatch
+  ? new command.local.Command(
+      "envoy-gateway-restart",
+      {
+        create: `
+          kubectl rollout restart deployment/envoy-gateway \
+            -n envoy-gateway-system --context ${context} && \
+          kubectl rollout status deployment/envoy-gateway \
+            -n envoy-gateway-system --context ${context} --timeout=120s
+        `,
+        delete: `true`,
+      },
+      { dependsOn: [envoyGatewayConfigPatch] },
+    )
+  : undefined;
+
+// Restart the envoy proxy pod so the AI gateway extension server injects the
+// extproc sidecar. Without this restart the pod comes up without the sidecar
+// and /v1/models returns 500 on every fresh cluster.
+// No rollout status check — hostPort contention on kind means the old pod
+// lingers until it fully terminates, which exceeds any reasonable timeout.
+export const envoyProxyRestart = envoyGatewayRestart
+  ? new command.local.Command(
+      "envoy-proxy-restart",
+      {
+        create: `
+          DEPLOY=$(kubectl get deployment -n envoy-gateway-system \
+            --context ${context} \
+            -l gateway.envoyproxy.io/owning-gateway-name=local \
+            -o jsonpath='{.items[0].metadata.name}') && \
+          kubectl rollout restart deployment/$DEPLOY \
+            -n envoy-gateway-system --context ${context}
+        `,
+        delete: `true`,
+      },
+      { dependsOn: [envoyGatewayRestart] },
+    )
+  : undefined;

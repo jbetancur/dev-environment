@@ -22,6 +22,7 @@ helm repo add argo                  https://argoproj.github.io/argo-helm
 helm repo add cilium                https://helm.cilium.io
 helm repo add envoy-gateway         https://charts.envoyproxy.io
 helm repo add stakater              https://stakater.github.io/stakater-charts
+helm repo add open-webui            https://helm.openwebui.com/
 helm repo update
 echo "  ✓ Helm repos added"
 

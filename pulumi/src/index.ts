@@ -22,5 +22,5 @@ export const hubbleUrl = pulumi.interpolate`https://hubble.${base}`;
 export const registryUrl = pulumi.interpolate`https://registry.${base}`;
 export const argocdCredentials = pulumi.interpolate`admin / ${argocdPassword}`;
 export const aiGatewayUrl = installAiGateway ? pulumi.interpolate`https://ai.${base}` : undefined;
-export const aiDemoUrl = installAiGateway ? pulumi.interpolate`https://ai-demo.${base}` : undefined;
+export const chatUrl = installAiGateway ? pulumi.interpolate`https://chat.${base}` : undefined;
 export const note = pulumi.interpolate`Services available once ArgoCD syncs (~2-3 min). Domain: *.${subdomain}.${domain}`;

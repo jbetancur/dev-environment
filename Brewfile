@@ -54,6 +54,7 @@ brew "mas"
 
 # Apps
 cask "visual-studio-code"
+cask "open-webui"
 cask "bruno"
 cask "citrix-workspace"
 # Browser — configured in user.conf (options: brave | chrome | firefox)

@@ -36,6 +36,7 @@ CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.20.2}"
 KUBE_PROMETHEUS_STACK_VERSION="${KUBE_PROMETHEUS_STACK_VERSION:-85.3.0}"
 LOKI_VERSION="${LOKI_VERSION:-7.0.0}"
 PROMTAIL_VERSION="${PROMTAIL_VERSION:-6.17.1}"
+OPEN_WEBUI_VERSION="${OPEN_WEBUI_VERSION:-v0.9.5}"
 
 pulumi login --local
 pulumi stack init "$STACK" 2>/dev/null || pulumi stack select "$STACK"
@@ -54,6 +55,7 @@ pulumi config set certManagerVersion         "$CERT_MANAGER_VERSION"
 pulumi config set kubePrometheusStackVersion "$KUBE_PROMETHEUS_STACK_VERSION"
 pulumi config set lokiVersion                "$LOKI_VERSION"
 pulumi config set promtailVersion            "$PROMTAIL_VERSION"
+pulumi config set openWebUiVersion           "$OPEN_WEBUI_VERSION"
 
 if [[ "$CERT_MODE" == "letsencrypt" ]]; then
   : "${CF_TOKEN?CF_TOKEN is required when CERT_MODE=letsencrypt}"

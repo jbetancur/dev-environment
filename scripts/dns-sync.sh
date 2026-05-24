@@ -49,7 +49,7 @@ SERVICES=(
   argocd
   registry
   ai
-  ai-demo
+  chat
 )
 
 # Build the hosts block
