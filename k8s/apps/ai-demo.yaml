@@ -175,12 +175,8 @@ data:
       }
 
       location /v1/ {
-        proxy_pass https://ai.k8s.thebetancurs.net/v1/;
-        proxy_ssl_server_name on;
+        proxy_pass http://envoy-envoy-gateway-system-local-c3ff217f.envoy-gateway-system.svc.cluster.local:80/v1/;
         proxy_set_header Host ai.k8s.thebetancurs.net;
-        proxy_set_header x-ai-eg-model $http_x_ai_eg_model;
-        proxy_set_header x-tenant-id $http_x_tenant_id;
-        proxy_set_header Content-Type $http_content_type;
         proxy_pass_request_headers on;
       }
     }
