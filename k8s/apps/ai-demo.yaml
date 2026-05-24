@@ -34,10 +34,16 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /usr/share/nginx/html
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
       volumes:
         - name: html
           configMap:
             name: ai-demo-html
+        - name: nginx-conf
+          configMap:
+            name: ai-demo-nginx-conf
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -92,8 +98,8 @@ data:
         const sendBtn = document.getElementById('send');
         const history = [];
 
-        // Gateway URL — update if your domain differs
-        const GATEWAY = 'https://ai.' + location.hostname.split('.').slice(1).join('.');
+        // Proxy path — nginx forwards /v1/ to the AI gateway, avoiding CORS
+        const GATEWAY = '';
 
         function addMsg(role, text) {
           const el = document.createElement('div');
@@ -152,6 +158,32 @@ data:
       </script>
     </body>
     </html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-demo-nginx-conf
+  namespace: ai-demo
+data:
+  default.conf: |
+    server {
+      listen 80;
+
+      location / {
+        root /usr/share/nginx/html;
+        index index.html;
+      }
+
+      location /v1/ {
+        proxy_pass https://ai.k8s.thebetancurs.net/v1/;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ai.k8s.thebetancurs.net;
+        proxy_set_header x-ai-eg-model $http_x_ai_eg_model;
+        proxy_set_header x-tenant-id $http_x_tenant_id;
+        proxy_set_header Content-Type $http_content_type;
+        proxy_pass_request_headers on;
+      }
+    }
 ---
 apiVersion: v1
 kind: Service

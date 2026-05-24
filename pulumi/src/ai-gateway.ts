@@ -1,10 +1,10 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as command from "@pulumi/command";
 import * as pulumi from "@pulumi/pulumi";
-import { context, base, aiGatewayVersion, installAiGateway, openAiApiKey } from "./config";
+import { context, aiGatewayVersion, installAiGateway, openAiApiKey } from "./config";
 import { provider } from "./cilium";
 import { envoyGatewayReady } from "./envoy";
-import { gateway } from "./gateway";
+
 
 if (!installAiGateway) {
   pulumi.log.info("AI Gateway is disabled (installAiGateway=false). Set installAiGateway=true to enable.");
@@ -77,34 +77,5 @@ export const openAiSecret = aiGatewayNs
     )
   : undefined;
 
-// HTTPRoute — attaches to the existing shared Gateway in envoy-gateway-system.
-export const aiGatewayRoute = aiGatewayNs
-  ? new k8s.apiextensions.CustomResource(
-      "ai-gateway-httproute",
-      {
-        apiVersion: "gateway.networking.k8s.io/v1",
-        kind: "HTTPRoute",
-        metadata: { name: "ai-gateway", namespace: "ai-gateway" },
-        spec: {
-          parentRefs: [
-            { name: "local", namespace: "envoy-gateway-system", sectionName: "https" },
-          ],
-          hostnames: [pulumi.interpolate`ai.${base}`],
-          rules: [
-            {
-              matches: [{ path: { type: "PathPrefix", value: "/" } }],
-              backendRefs: [
-                {
-                  group: "aigateway.envoyproxy.io",
-                  kind: "AIGatewayRoute",
-                  name: "openai",
-                  namespace: "ai-gateway",
-                },
-              ],
-            },
-          ],
-        },
-      },
-      { provider, dependsOn: [gateway, aiGatewayNs] },
-    )
-  : undefined;
+// No HTTPRoute needed here — AIGatewayRoute attaches directly to the Gateway
+// via its own parentRefs (managed by ArgoCD via k8s/ai-gateway/ai-gateway-route.yaml).
