@@ -20,8 +20,6 @@ spec:
           env:
             - name: SINGLE_REGISTRY
               value: "true"
-            - name: REGISTRY_URL
-              value: "http://kind-registry:5000"
             - name: DELETE_IMAGES
               value: "true"
             - name: SHOW_CONTENT_DIGEST

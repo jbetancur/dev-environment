@@ -17,5 +17,6 @@ export const cluster = clusterName;
 export const argocdUrl = pulumi.interpolate`https://argocd.${base}`;
 export const grafanaUrl = pulumi.interpolate`https://grafana.${base}`;
 export const hubbleUrl = pulumi.interpolate`https://hubble.${base}`;
+export const registryUrl = pulumi.interpolate`https://registry.${base}`;
 export const argocdCredentials = pulumi.interpolate`admin / ${argocdPassword}`;
 export const note = pulumi.interpolate`Services available once ArgoCD syncs (~2-3 min). Domain: *.${subdomain}.${domain}`;
