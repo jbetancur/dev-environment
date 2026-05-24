@@ -60,6 +60,48 @@ spec:
               value: gpt-4o
       backendRefs:
         - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-5.5
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-5.4
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-5.4-mini
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-image-1
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: dall-e-3
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: dall-e-2
+      backendRefs:
+        - name: openai
   # Track token usage in metadata for the BackendTrafficPolicy rate limiter
   llmRequestCosts:
     - metadataKey: llm_input_token
