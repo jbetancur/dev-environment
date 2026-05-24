@@ -47,6 +47,7 @@ SERVICES=(
   hubble
   grafana
   argocd
+  registry
 )
 
 # Build the hosts block
