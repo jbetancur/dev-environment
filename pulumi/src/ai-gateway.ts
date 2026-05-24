@@ -77,5 +77,19 @@ export const openAiSecret = aiGatewayNs
     )
   : undefined;
 
-// No HTTPRoute needed here — AIGatewayRoute attaches directly to the Gateway
-// via its own parentRefs (managed by ArgoCD via k8s/ai-gateway/ai-gateway-route.yaml).
+// GatewayConfig — must be in the same namespace as the Gateway (envoy-gateway-system).
+// The AI gateway controller reads this to wire the extproc HTTP filter into Envoy's
+// xDS config. Placing it here (Pulumi-owned namespace) avoids the ArgoCD delete-loop
+// that occurs when it's placed in the ArgoCD-managed ai-gateway namespace.
+export const aiGatewayConfig = openAiSecret
+  ? new k8s.apiextensions.CustomResource(
+      "ai-gateway-config",
+      {
+        apiVersion: "aigateway.envoyproxy.io/v1beta1",
+        kind: "GatewayConfig",
+        metadata: { name: "ai-gateway-config", namespace: "envoy-gateway-system" },
+        spec: {},
+      },
+      { provider, dependsOn: [openAiSecret] },
+    )
+  : undefined;
