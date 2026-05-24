@@ -75,9 +75,10 @@ metadata:
   namespace: ai-gateway
 spec:
   targetRefs:
-    - name: openai
-      kind: AIGatewayRoute
-      group: aigateway.envoyproxy.io
+    - name: local
+      namespace: envoy-gateway-system
+      kind: Gateway
+      group: gateway.networking.k8s.io
   rateLimit:
     type: Global
     global:

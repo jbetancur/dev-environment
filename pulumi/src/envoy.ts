@@ -14,6 +14,16 @@ export const envoyGateway = new k8s.helm.v3.Release(
     version: envoyGatewayVersion,
     namespace: "envoy-gateway-system",
     createNamespace: true,
+    values: {
+      config: {
+        envoyGateway: {
+          extensionApis: {
+            // Required for AIGatewayRoute's Backend resources to be accepted
+            enableBackend: true,
+          },
+        },
+      },
+    },
   },
   { provider, dependsOn: metricsServer },
 );
