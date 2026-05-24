@@ -2,7 +2,7 @@
 
 My personal macOS bootstrap for a fresh machine.
 
-This is opinionated toward how I work as a **Go, React, and Kubernetes developer** — terminal-first, keyboard-driven, minimal GUI friction. It installs the tools I actually use, symlinks my dotfiles, and sets macOS defaults the way I like them.
+This is opinionated toward how I work as a **Go, React, and Kubernetes developer** terminal-first, keyboard-driven, minimal GUI friction. It installs the tools I use, symlinks my dotfiles, and sets macOS defaults.
 
 If you're of similar mind clone it and make it your own!
 
@@ -27,6 +27,17 @@ cd dev-environment
 | `./run.sh uninstall` | Remove all packages, casks, and symlinks (keeps Homebrew) |
 
 > **Note:** Sign into the **Mac App Store** before running — the script uses `mas` to install WireGuard automatically.
+
+## Customization
+
+This repo is designed to be forked and tailored. The main levers:
+
+- **Brewfile** — add or remove formulae, casks, and Mac App Store apps; it's the single source of truth for everything Homebrew installs
+- **`dotfiles/`** — swap in your own shell, editor, and tool configs; they're symlinked so live edits are tracked in git automatically
+- **`scripts/install.sh`** — uncomment optional items (Sketchybar, Discord, etc.) or add your own install steps
+- **`scripts/defaults.sh`** — adjust or remove macOS defaults that don't match your workflow
+
+Fork the repo, change what you like, and run `./run.sh` on any new machine.
 
 ## What it installs
 

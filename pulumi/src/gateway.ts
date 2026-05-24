@@ -13,12 +13,31 @@ const certManagerReady = new command.local.Command(
   {
     create: `
       until kubectl get crd clusterissuers.cert-manager.io --context ${context} &>/dev/null; do sleep 5; done
+      kubectl rollout status deployment/cert-manager \
+        --namespace cert-manager \
+        --context ${context} \
+        --timeout=120s
       kubectl rollout status deployment/cert-manager-webhook \
+        --namespace cert-manager \
+        --context ${context} \
+        --timeout=120s
+      kubectl rollout status deployment/cert-manager-cainjector \
         --namespace cert-manager \
         --context ${context} \
         --timeout=120s
       until kubectl get validatingwebhookconfigurations cert-manager-webhook --context ${context} \
         -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null | grep -q .; do sleep 3; done
+      until kubectl get endpoints cert-manager-webhook -n cert-manager --context ${context} \
+        -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null | grep -q .; do sleep 3; done
+      until kubectl apply --dry-run=server --context ${context} -f - <<EOF &>/dev/null
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: webhook-probe
+spec:
+  selfSigned: {}
+EOF
+      do sleep 3; done
     `,
     delete: `true`,
   },
@@ -75,7 +94,7 @@ if (certMode === "letsencrypt") {
         issuerRef: { name: "cluster-issuer", kind: "ClusterIssuer", group: "cert-manager.io" },
       },
     },
-    { provider, dependsOn: issuer, retainOnDelete: true, ignoreChanges: ["status"] },
+    { provider, dependsOn: issuer, retainOnDelete: true, ignoreChanges: ["spec", "status"] },
   );
 
 } else {
@@ -133,7 +152,7 @@ if (certMode === "letsencrypt") {
         issuerRef: { name: "cluster-issuer", kind: "ClusterIssuer", group: "cert-manager.io" },
       },
     },
-    { provider, dependsOn: caIssuer, retainOnDelete: true, ignoreChanges: ["status"] },
+    { provider, dependsOn: caIssuer, retainOnDelete: true, ignoreChanges: ["spec", "status"] },
   );
 }
 
