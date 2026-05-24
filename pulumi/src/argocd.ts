@@ -20,6 +20,7 @@ export const argocd = new k8s.helm.v3.Release(
       configs: {
         params: {
           "server.insecure": true,
+          "application.reconciliation.timeout": "30s",
         },
       },
     },
