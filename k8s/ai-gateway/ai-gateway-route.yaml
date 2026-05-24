@@ -1,12 +1,3 @@
-# GatewayConfig — tells the AI gateway controller to inject the extproc sidecar
-# into the Envoy pod for the Gateway annotated with this config.
-apiVersion: aigateway.envoyproxy.io/v1beta1
-kind: GatewayConfig
-metadata:
-  name: ai-gateway-config
-  namespace: ai-gateway
-spec: {}
----
 # AIServiceBackend — wraps the Envoy Gateway Backend with OpenAI schema awareness
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIServiceBackend

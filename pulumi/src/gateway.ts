@@ -186,15 +186,7 @@ export const gateway = new k8s.apiextensions.CustomResource(
   {
     apiVersion: "gateway.networking.k8s.io/v1",
     kind: "Gateway",
-    metadata: {
-      name: "local",
-      namespace: "envoy-gateway-system",
-      annotations: {
-        // Tells the AI gateway controller (v0.6.0+) to inject the extproc sidecar
-        // into this gateway's Envoy pod for LLM request processing.
-        "aigateway.envoyproxy.io/gateway-config": "ai-gateway-config",
-      },
-    },
+    metadata: { name: "local", namespace: "envoy-gateway-system" },
     spec: {
       gatewayClassName: "eg",
       listeners: [
