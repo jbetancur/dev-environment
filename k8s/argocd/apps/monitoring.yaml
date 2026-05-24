@@ -5,7 +5,6 @@ kind: Application
 metadata:
   name: monitoring
   namespace: argocd
-  finalizers: []
 spec:
   project: default
   source:
@@ -35,13 +34,101 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
 ---
+# Loki — log aggregation backend (SingleBinary mode, filesystem storage, dev-sized)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 7.0.0
+    helm:
+      parameters:
+        - name: loki.commonConfig.replication_factor
+          value: "1"
+        - name: loki.storage.type
+          value: filesystem
+        - name: loki.schemaConfig.configs[0].from
+          value: "2024-01-01"
+        - name: loki.schemaConfig.configs[0].store
+          value: tsdb
+        - name: loki.schemaConfig.configs[0].object_store
+          value: filesystem
+        - name: loki.schemaConfig.configs[0].schema
+          value: v13
+        - name: loki.schemaConfig.configs[0].index.prefix
+          value: loki_index_
+        - name: loki.schemaConfig.configs[0].index.period
+          value: 24h
+        - name: deploymentMode
+          value: SingleBinary
+        - name: singleBinary.replicas
+          value: "1"
+        - name: backend.replicas
+          value: "0"
+        - name: read.replicas
+          value: "0"
+        - name: write.replicas
+          value: "0"
+        - name: minio.enabled
+          value: "false"
+        - name: gateway.enabled
+          value: "false"
+        - name: chunksCache.enabled
+          value: "false"
+        - name: resultsCache.enabled
+          value: "false"
+        - name: loki.cacheConfig.chunks_cache.enabled
+          value: "false"
+        - name: loki.cacheConfig.results_cache.enabled
+          value: "false"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+---
+# Promtail — DaemonSet log collector, ships to Loki
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: promtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: promtail
+    targetRevision: 6.17.1
+    helm:
+      parameters:
+        - name: config.clients[0].url
+          value: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
 # monitoring config — RBAC, ServiceMonitors, Grafana dashboards, HTTPRoute
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: monitoring-config
   namespace: argocd
-  finalizers: []
 spec:
   project: default
   source:

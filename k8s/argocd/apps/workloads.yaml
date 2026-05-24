@@ -4,7 +4,6 @@ kind: Application
 metadata:
   name: workloads
   namespace: argocd
-  finalizers: []
 spec:
   project: default
   source:

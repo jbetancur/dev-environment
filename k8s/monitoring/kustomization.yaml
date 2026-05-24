@@ -4,3 +4,4 @@ resources:
   - prometheus-rbac.yaml
   - servicemonitors.yaml
   - dashboards.yaml
+  - loki-datasource.yaml
