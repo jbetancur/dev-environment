@@ -95,12 +95,15 @@ data:
         button:disabled { opacity: 0.5; cursor: default; }
         #clear { background: transparent; border: 1px solid #334155; color: #64748b; padding: 0.6rem 0.75rem; font-size: 0.85rem; }
         #clear:hover { border-color: #475569; color: #94a3b8; }
+        #sprite-preset { background: transparent; border: 1px solid #334155; color: #a78bfa; padding: 0.6rem 0.75rem; font-size: 0.85rem; }
+        #sprite-preset:hover { border-color: #7c3aed; color: #c4b5fd; }
       </style>
     </head>
     <body>
       <header>
         <h1>Envoy AI Gateway</h1>
         <span>routed via ai.DOMAIN → OpenAI</span>
+        <button id="sprite-preset" type="button">🎮 Sprite</button>
         <button id="clear" type="button" style="margin-left:auto">Clear</button>
       </header>
       <div id="chat"></div>
@@ -131,6 +134,7 @@ data:
         const modelSel = document.getElementById('model');
         const sendBtn = document.getElementById('send');
         const clearBtn = document.getElementById('clear');
+        const spriteBtn = document.getElementById('sprite-preset');
         const attachLabel = document.getElementById('attach-label');
         const attachInput = document.getElementById('attach');
         const attachName = document.getElementById('attach-name');
@@ -162,6 +166,23 @@ data:
         clearBtn.addEventListener('click', () => {
           history.length = 0;
           chat.innerHTML = '';
+        });
+
+        const SPRITE_TEMPLATES = [
+          'pixel art game sprite sheet, 4 walk cycle frames, 32x32 per frame, transparent background, top-down RPG style: ',
+          'pixel art game sprite, 16x16, transparent background, retro 8-bit style: ',
+          'pixel art character sprite sheet, idle + run + jump animations, 48x48 per frame, transparent background: ',
+          'isometric pixel art game sprite, 64x64, transparent background, RPG item: ',
+        ];
+        let spriteTemplateIdx = 0;
+
+        spriteBtn.addEventListener('click', () => {
+          modelSel.value = 'gpt-image-1';
+          updateUI();
+          input.value = SPRITE_TEMPLATES[spriteTemplateIdx % SPRITE_TEMPLATES.length];
+          spriteTemplateIdx++;
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
         });
 
         function addMsg(role, text) {
@@ -219,10 +240,13 @@ data:
             addMsg('user', text);
             const thinking = addMsg('assistant', '…');
             try {
+              const isGptImage = model === 'gpt-image-1';
+              const body = { model, prompt: text, n: 1, size: '1024x1024' };
+              if (!isGptImage) body.response_format = 'url';
               const res = await fetch('/v1/images/generations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-ai-eg-model': model, 'x-tenant-id': 'demo' },
-                body: JSON.stringify({ model, prompt: text, n: 1, size: '1024x1024', response_format: 'url' }),
+                body: JSON.stringify(body),
               });
               if (!res.ok) {
                 const err = await res.text();
@@ -231,7 +255,8 @@ data:
                 return;
               }
               const data = await res.json();
-              const url = data.data?.[0]?.url;
+              const item = data.data?.[0];
+              const url = item?.url ?? (item?.b64_json ? 'data:image/png;base64,' + item.b64_json : null);
               thinking.remove();
               if (url) addImgMsg(url);
               else addMsg('assistant', '(no image returned)');
