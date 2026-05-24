@@ -48,6 +48,8 @@ SERVICES=(
   grafana
   argocd
   registry
+  ai
+  ai-demo
 )
 
 # Build the hosts block

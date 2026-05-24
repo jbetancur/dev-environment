@@ -38,8 +38,17 @@ export const cloudflareToken = certMode === "letsencrypt"
   ? mustGetSecret("cloudflareToken")
   : pulumi.output("unused");
 
+// AI Gateway — opt-in feature flag
+export const installAiGateway = getOrDefault("installAiGateway", "false") === "true";
+
+// OpenAI API key — only required when installAiGateway=true
+export const openAiApiKey: pulumi.Output<string> = installAiGateway
+  ? cfg.requireSecret("openAiApiKey")
+  : pulumi.output("unused");
+
 // Pinned versions — override per-stack if needed
 export const argoCdVersion                = getOrDefault("argoCdVersion",                "9.5.15");
+export const aiGatewayVersion             = getOrDefault("aiGatewayVersion",             "v0.6.0");
 export const envoyGatewayVersion          = getOrDefault("envoyGatewayVersion",          "v1.8.0");
 export const ciliumVersion                = getOrDefault("ciliumVersion",                "1.19.4");
 export const certManagerVersion           = getOrDefault("certManagerVersion",           "v1.20.2");

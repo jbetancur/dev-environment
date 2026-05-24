@@ -1,0 +1,116 @@
+# AIServiceBackend — wraps the Envoy Gateway Backend with OpenAI schema awareness
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: openai
+  namespace: ai-gateway
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: openai
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+# BackendSecurityPolicy — injects the OpenAI API key from the secret created by Pulumi
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: BackendSecurityPolicy
+metadata:
+  name: openai-apikey
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: openai
+  type: APIKey
+  apiKey:
+    secretRef:
+      name: openai-apikey
+      namespace: ai-gateway
+---
+# AIGatewayRoute — routes model-tagged requests to the OpenAI backend
+# Clients set the x-ai-eg-model header to select the model.
+# The route attaches to the shared Gateway via the HTTPRoute in Pulumi (gateway.ts).
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: openai
+  namespace: ai-gateway
+spec:
+  parentRefs:
+    - name: local
+      namespace: envoy-gateway-system
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-4o-mini
+      backendRefs:
+        - name: openai
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-4o
+      backendRefs:
+        - name: openai
+  # Track token usage in metadata for the BackendTrafficPolicy rate limiter
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken
+    - metadataKey: llm_output_token
+      type: OutputToken
+    - metadataKey: llm_total_token
+      type: TotalToken
+---
+# BackendTrafficPolicy — token-based rate limiting per tenant (x-tenant-id header)
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: openai-token-ratelimit
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - name: openai
+      kind: AIGatewayRoute
+      group: aigateway.envoyproxy.io
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        - clientSelectors:
+            - headers:
+                - name: x-tenant-id
+                  type: Distinct
+          limit:
+            requests: 50000
+            unit: Hour
+          cost:
+            request:
+              from: Number
+              number: 0
+            response:
+              from: Metadata
+              metadata:
+                namespace: io.envoy.ai_gateway
+                key: llm_input_token
+        - clientSelectors:
+            - headers:
+                - name: x-tenant-id
+                  type: Distinct
+          limit:
+            requests: 50000
+            unit: Hour
+          cost:
+            request:
+              from: Number
+              number: 0
+            response:
+              from: Metadata
+              metadata:
+                namespace: io.envoy.ai_gateway
+                key: llm_output_token

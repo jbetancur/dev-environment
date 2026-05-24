@@ -28,6 +28,7 @@ source .env
 : "${EMAIL?}"
 : "${REPO_URL?}"
 CERT_MODE="${CERT_MODE:-letsencrypt}"
+INSTALL_AI_GATEWAY="${INSTALL_AI_GATEWAY:-false}"
 ARGOCD_VERSION="${ARGOCD_VERSION:-9.5.15}"
 ENVOY_GATEWAY_VERSION="${ENVOY_GATEWAY_VERSION:-v1.8.0}"
 CILIUM_VERSION="${CILIUM_VERSION:-1.19.4}"
@@ -45,6 +46,7 @@ pulumi config set subdomain   "$SUBDOMAIN"
 pulumi config set email       "$EMAIL"
 pulumi config set repoUrl     "$REPO_URL"
 pulumi config set certMode                   "$CERT_MODE"
+pulumi config set installAiGateway           "$INSTALL_AI_GATEWAY"
 pulumi config set argoCdVersion              "$ARGOCD_VERSION"
 pulumi config set envoyGatewayVersion        "$ENVOY_GATEWAY_VERSION"
 pulumi config set ciliumVersion              "$CILIUM_VERSION"
@@ -56,6 +58,11 @@ pulumi config set promtailVersion            "$PROMTAIL_VERSION"
 if [[ "$CERT_MODE" == "letsencrypt" ]]; then
   : "${CF_TOKEN?CF_TOKEN is required when CERT_MODE=letsencrypt}"
   pulumi config set --secret cloudflareToken "$CF_TOKEN"
+fi
+
+if [[ "$INSTALL_AI_GATEWAY" == "true" ]]; then
+  : "${OPENAI_API_KEY?OPENAI_API_KEY is required when INSTALL_AI_GATEWAY=true}"
+  pulumi config set --secret openAiApiKey "$OPENAI_API_KEY"
 fi
 
 echo ""
