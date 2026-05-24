@@ -106,6 +106,7 @@ Fork the repo, change what you like, and run `./run.sh` on any new machine.
 - `kind`, `kubectl`, `kubernetes-cli`, `k9s`
 - `kubectx` / `kubens` — fast context and namespace switching
 - `pulumi` — cluster bootstrap
+- Stakater Reloader — auto-restarts pods when ConfigMaps or Secrets change
 
 ### Apps
 
@@ -381,6 +382,7 @@ delta activates automatically — no extra commands. Every `git diff`, `git log`
 | `n` / `N` | Jump to next / previous change (navigate mode) |
 
 To toggle side-by-side off temporarily:
+
 ```sh
 git diff --no-pager | delta --side-by-side=false
 ```

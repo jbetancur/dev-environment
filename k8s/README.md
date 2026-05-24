@@ -35,11 +35,18 @@ Once Pulumi hands off to ArgoCD, it continuously syncs:
 | `monitoring-config` | Prometheus RBAC, ServiceMonitors, Grafana dashboards + datasources |
 | `hubble` | Hubble UI HTTPRoute |
 | `workloads` | Everything in `k8s/apps/` |
+| `reloader` | Stakater Reloader — auto-restarts pods on ConfigMap/Secret changes |
 
 ## Deploying an app
 
 1. Copy `k8s/example.yaml`, update image/namespace/hostname, place it in `k8s/apps/`.
-2. Push to git — ArgoCD syncs automatically within ~30s.
+2. Push to git — ArgoCD syncs automatically within ~30s (poll interval configured via `application.reconciliation.timeout`).
+
+To trigger an automatic pod restart when a ConfigMap changes, add this annotation to the Deployment's pod template:
+
+```yaml
+configmap.reloader.stakater.com/reload: "my-configmap"
+```
 
 To build and push the image to the local registry:
 
@@ -72,6 +79,7 @@ Once the cluster is healthy, these URLs are available:
 | ArgoCD | `https://argocd.k8s.<domain>` |
 | Grafana (metrics + logs) | `https://grafana.k8s.<domain>` |
 | Hubble (network flows) | `https://hubble.k8s.<domain>` |
+| AI Gateway Demo | `https://ai-demo.k8s.<domain>` |
 
 Grafana credentials: `admin / admin` (set via `grafana.adminPassword` in the monitoring app).
 

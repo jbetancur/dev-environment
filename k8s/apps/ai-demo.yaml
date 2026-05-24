@@ -20,6 +20,7 @@ spec:
         app: ai-demo
       annotations:
         kubectl.kubernetes.io/restartedAt: "2026-05-24"
+        configmap.reloader.stakater.com/reload: "ai-demo-html,ai-demo-nginx-conf"
     spec:
       containers:
         - name: ai-demo
