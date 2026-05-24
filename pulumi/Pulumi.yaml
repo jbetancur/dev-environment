@@ -3,6 +3,7 @@ runtime:
   name: nodejs
   options:
     packagemanager: npm
+    typescript: true
 description: Bootstraps a local kind cluster with Cilium, ArgoCD, Envoy Gateway, and cert-manager.
 config:
   pulumi:tags:
