@@ -1,4 +1,5 @@
 user.conf
+.claude/settings.json
 
 # Pulumi
 pulumi/node_modules/
