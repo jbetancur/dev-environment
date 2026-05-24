@@ -238,6 +238,29 @@ export const hubbleRoute = new k8s.apiextensions.CustomResource(
   { provider, dependsOn: gateway },
 );
 
+// Registry UI HTTPRoute.
+export const registryUiRoute = new k8s.apiextensions.CustomResource(
+  "registry-ui-httproute",
+  {
+    apiVersion: "gateway.networking.k8s.io/v1",
+    kind: "HTTPRoute",
+    metadata: { name: "registry-ui", namespace: "registry-ui" },
+    spec: {
+      parentRefs: [
+        { name: "local", namespace: "envoy-gateway-system", sectionName: "https" },
+      ],
+      hostnames: [pulumi.interpolate`registry.${base}`],
+      rules: [
+        {
+          matches: [{ path: { type: "PathPrefix", value: "/" } }],
+          backendRefs: [{ name: "registry-ui", port: 80 }],
+        },
+      ],
+    },
+  },
+  { provider, dependsOn: gateway },
+);
+
 // Grafana HTTPRoute.
 export const grafanaRoute = new k8s.apiextensions.CustomResource(
   "grafana-httproute",
@@ -254,29 +277,6 @@ export const grafanaRoute = new k8s.apiextensions.CustomResource(
         {
           matches: [{ path: { type: "PathPrefix", value: "/" } }],
           backendRefs: [{ name: "monitoring-grafana", port: 80 }],
-        },
-      ],
-    },
-  },
-  { provider, dependsOn: gateway },
-);
-
-// Registry UI HTTPRoute.
-export const registryUiRoute = new k8s.apiextensions.CustomResource(
-  "registry-ui-httproute",
-  {
-    apiVersion: "gateway.networking.k8s.io/v1",
-    kind: "HTTPRoute",
-    metadata: { name: "registry-ui", namespace: "default" },
-    spec: {
-      parentRefs: [
-        { name: "local", namespace: "envoy-gateway-system", sectionName: "https" },
-      ],
-      hostnames: [pulumi.interpolate`registry.${base}`],
-      rules: [
-        {
-          matches: [{ path: { type: "PathPrefix", value: "/" } }],
-          backendRefs: [{ name: "registry-ui", port: 80 }],
         },
       ],
     },
