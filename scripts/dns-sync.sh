@@ -50,6 +50,7 @@ SERVICES=(
   registry
   ai
   chat
+  vision
 )
 
 # Build the hosts block
