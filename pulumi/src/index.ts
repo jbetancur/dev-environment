@@ -7,6 +7,7 @@ import "./cluster";
 import "./crds";
 import "./cilium";
 import "./envoy";
+import "./coredns";
 import "./argocd";
 import "./secrets";
 import "./gateway";
