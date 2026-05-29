@@ -1,0 +1,28 @@
+# EnvoyPatchPolicy — fixes response_payload_too_large (HTTP 500) for image generation.
+#
+# The AI gateway ext_proc always runs in BUFFERED mode for AI routes to inspect response
+# bodies. Envoy's HCM per-stream body buffer defaults to ~1 MB, but image generation
+# responses (gpt-image-1 b64_json) are 3–6 MB. Adding a buffer filter before ext_proc
+# raises that limit to 20 MiB.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: extproc-buffer
+  namespace: envoy-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: local
+  type: JSONPatch
+  jsonPatches:
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: "envoy-gateway-system/local/https"
+      operation:
+        op: add
+        path: "/filter_chains/0/filters/0/typed_config/http_filters/0"
+        value:
+          name: "envoy.filters.http.buffer"
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.buffer.v3.Buffer"
+            max_request_bytes: 20971520

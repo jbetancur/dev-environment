@@ -20,6 +20,8 @@ export const envoyGateway = new k8s.helm.v3.Release(
           extensionApis: {
             // Required for AIGatewayRoute's Backend resources to be accepted
             enableBackend: true,
+            // Required for EnvoyPatchPolicy (used to raise ext_proc gRPC window size)
+            enableEnvoyPatchPolicy: true,
           },
         },
       },

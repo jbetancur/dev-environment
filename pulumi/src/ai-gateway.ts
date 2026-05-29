@@ -97,6 +97,56 @@ export const aiGatewayConfig = openAiSecret
 // the listener chain — requests reach OpenAI without the Authorization header.
 // Uses a local Command (kubectl patch) since the ConfigMap is owned by the EG Helm chart
 // and server-side apply field conflicts prevent Pulumi from managing it directly.
+const envoyGatewayYaml = `\
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyGateway
+extensionApis:
+  enableBackend: true
+  enableEnvoyPatchPolicy: true
+extensionManager:
+  hooks:
+    xdsTranslator:
+      translation:
+        listener:
+          includeAll: true
+        route:
+          includeAll: true
+        cluster:
+          includeAll: true
+        secret:
+          includeAll: true
+      post:
+        - Translation
+        - Cluster
+        - Route
+  service:
+    fqdn:
+      hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+      port: 1063
+gateway:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+logging:
+  level:
+    default: info
+provider:
+  kubernetes:
+    rateLimitDeployment:
+      container:
+        image: docker.io/envoyproxy/ratelimit:ff287602
+      patch:
+        type: StrategicMerge
+        value:
+          spec:
+            template:
+              spec:
+                containers:
+                - imagePullPolicy: IfNotPresent
+                  name: envoy-ratelimit
+    shutdownManager:
+      image: docker.io/envoyproxy/gateway:v1.8.0
+  type: Kubernetes
+`;
+
 export const envoyGatewayConfigPatch = aiGatewayConfig
   ? new command.local.Command(
       "envoy-gateway-config-patch",
@@ -105,7 +155,9 @@ export const envoyGatewayConfigPatch = aiGatewayConfig
           -n envoy-gateway-system \
           --context ${context} \
           --type merge \
-          -p '{"data":{"envoy-gateway.yaml":"apiVersion: gateway.envoyproxy.io/v1alpha1\\nkind: EnvoyGateway\\nextensionApis:\\n  enableBackend: true\\nextensionManager:\\n  hooks:\\n    xdsTranslator:\\n      translation:\\n        listener:\\n          includeAll: true\\n        route:\\n          includeAll: true\\n        cluster:\\n          includeAll: true\\n        secret:\\n          includeAll: true\\n      post:\\n        - Translation\\n        - Cluster\\n        - Route\\n  service:\\n    fqdn:\\n      hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local\\n      port: 1063\\ngateway:\\n  controllerName: gateway.envoyproxy.io/gatewayclass-controller\\nlogging:\\n  level:\\n    default: info\\nprovider:\\n  kubernetes:\\n    rateLimitDeployment:\\n      container:\\n        image: docker.io/envoyproxy/ratelimit:ff287602\\n      patch:\\n        type: StrategicMerge\\n        value:\\n          spec:\\n            template:\\n              spec:\\n                containers:\\n                - imagePullPolicy: IfNotPresent\\n                  name: envoy-ratelimit\\n    shutdownManager:\\n      image: docker.io/envoyproxy/gateway:v1.8.0\\n  type: Kubernetes\\n"}}'`,
+          --patch-file /dev/stdin <<'EOF'
+${JSON.stringify({ data: { "envoy-gateway.yaml": envoyGatewayYaml } }, null, 2)}
+EOF`,
         delete: `true`,
       },
       { dependsOn: [aiGatewayConfig] },

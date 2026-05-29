@@ -6,3 +6,4 @@ resources:
   - https-redirect.yaml
   - gateway-timeout.yaml
   - response-buffer.yaml
+  - extproc-buffer.yaml
