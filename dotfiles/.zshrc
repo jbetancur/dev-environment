@@ -62,10 +62,16 @@ command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 autoload -Uz compinit && compinit
 command -v kubectl &>/dev/null && source <(kubectl completion zsh)
 command -v gh     &>/dev/null && source <(gh completion -s zsh)
-source <(fzf --zsh)
+command -v fzf    &>/dev/null && source <(fzf --zsh)
+
+# `cd` is zoxide's jump command (see --cmd cd below); jb jumps to the repo dir.
+alias jb="cd ${HOME}/Development/github.com/jbetancur"
 
 # ---- Zoxide (better cd) ----
-eval "$(zoxide init zsh)"
-
-alias cd="z"
-alias jb="z ${HOME}/Development/github.com/jbetancur"
+# Must be initialized at the very end of this file: zoxide registers precmd/
+# chpwd hooks and its doctor check warns unless they are the last hooks added,
+# so anything else that touches those hooks (atuin, p10k, fzf) has to come
+# first. --cmd cd makes zoxide define a real cd() function that delegates to
+# `builtin cd` for existing paths — preserving the builtin's exit code —
+# instead of the old `alias cd=z`, which masked cd's status behind the alias.
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh --cmd cd)"
